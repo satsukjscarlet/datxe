@@ -454,7 +454,9 @@ function is_user_admin()
 // Doesn't do anything at the moment, but allows for customisation or future development
 function is_visible($room)
 {
-  return true;
+  //return true;
+  // This is an example where rooms with ids 1 are only visible to admins.
+  return (in_array($room, array(3,4,5,6,7,8,9,10,11,12,13))) ? is_admin() : true; 
 }
 
 
