@@ -496,7 +496,7 @@ $weekstarts = 0;
 
 // Days of the week that are weekdays
 // Các ngày trong tuần là các ngày trong tuần
-$weekdays = array(1, 2, 3, 4, 5);
+$weekdays = array(0,1, 2, 3, 4, 5,6);
 
 // Days of the week that should be hidden from display
 // 0 for Sunday, 1 for Monday, etc.
@@ -513,7 +513,7 @@ $weekdays = array(1, 2, 3, 4, 5);
 // Theo mặc định, các ngày bị ẩn sẽ bị xóa hoàn toàn khỏi bảng chính trong tuần và tháng
 // lượt xem. Bạn có thể sắp xếp theo cách khác để chúng được hiển thị dưới dạng cột hẹp, màu xám
 // bằng cách xác định một số CSS tùy chỉnh cho lớp .hides_day.
-$hidden_days = array();
+$hidden_days = array(0);
 
 // Time format in pages. FALSE to show dates in 12 hour format, TRUE to show them
 // in 24 hour format
@@ -691,7 +691,7 @@ $show_registration_level = true;
 
 // Xác định chế độ xem bắt đầu mặc định (tháng, tuần hoặc ngày)
 // Mặc định là ngày
-$default_view = "week";
+$default_view = "month";
 
 // The default setting for the week and month views: whether to view all the
 // rooms (true) or not (false).

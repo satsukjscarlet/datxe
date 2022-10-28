@@ -1840,10 +1840,10 @@ $form->addElement(get_fieldset_registration());
 // or else if it's an existing booking and it's a series.  (It's not particularly obvious but
 // if edit_type is "series" then it means that either you're editing an existing
 // series or else you're making a new booking.  This should be tidied up sometime!)
-if (($edit_type == "series") && $repeats_allowed)
-{
-  $form->addElement(get_fieldset_repeat());
-}
+// if (($edit_type == "series") && $repeats_allowed)
+// {
+//   $form->addElement(get_fieldset_repeat());
+// }
 
 // Checkbox for no email
 if (need_to_send_mail() &&
