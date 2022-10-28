@@ -38,8 +38,8 @@ function display_buttons($row, $is_series)
     $form->addHiddenInputs($hidden_inputs);
 
     $element = new ElementInputSubmit();
-    $element->setAttribute('value', get_vocab('approve'));
-    $form->addElement($element);
+    // $element->setAttribute('value', get_vocab('approve'));
+    // $form->addElement($element);
 
     $form->render();
 
