@@ -513,7 +513,7 @@ $weekdays = array(0,1, 2, 3, 4, 5,6);
 // Theo mặc định, các ngày bị ẩn sẽ bị xóa hoàn toàn khỏi bảng chính trong tuần và tháng
 // lượt xem. Bạn có thể sắp xếp theo cách khác để chúng được hiển thị dưới dạng cột hẹp, màu xám
 // bằng cách xác định một số CSS tùy chỉnh cho lớp .hides_day.
-$hidden_days = array(0);
+$hidden_days = array();
 
 // Time format in pages. FALSE to show dates in 12 hour format, TRUE to show them
 // in 24 hour format

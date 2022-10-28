@@ -335,12 +335,12 @@ function get_field_start_time($value, $disabled=false)
                                               $current_s,
                                               false,
                                               $disabled,
-                                              true))
-        ->addControlElement(get_all_day($areas[$area_id],
-                                        'all_day',
-                                        'all_day',
-                                        false,
-                                        $disabled));
+                                              true));
+        // ->addControlElement(get_all_day($areas[$area_id],
+        //                                 'all_day',
+        //                                 'all_day',
+        //                                 false,
+        //                                 $disabled));
 
   // Generate the templates for each area
   foreach ($areas as $a)
@@ -351,12 +351,12 @@ function get_field_start_time($value, $disabled=false)
                                                 $current_s,
                                                 true,
                                                 true,
-                                                true))
-          ->addControlElement(get_all_day($a,
-                                          'all_day' . $a['id'],
-                                          'all_day',
-                                          true,
-                                          true));
+                                                true));
+          // ->addControlElement(get_all_day($a,
+          //                                 'all_day' . $a['id'],
+          //                                 'all_day',
+          //                                 true,
+          //                                 true));
   }
 
   return $field;
