@@ -1,14 +1,31 @@
 <?php
 namespace MRBS;
 
-use \IntlDateFormatter;
+use IntlDateFormatter;
+
+
+function get_date_classes(DateTime $date) : array
+{
+  $result = array();
+
+  if ($date->isWeekend())
+  {
+    $result[] = 'weekend';
+  }
+  if ($date->isHoliday())
+  {
+    $result[] = 'holiday';
+  }
+
+  return $result;
+}
 
 
 // Prepares an entry for display by (a) adding in registration level information
 // and (b) replacing the text in private fields if necessary.
 function prepare_entry(array $entry) : array
 {
-  global $is_private_field, $show_registration_level, $auth;
+  global $is_private_field, $show_registration_level, $auth, $kiosk;
 
   // Add in the registration level details
   if ($show_registration_level && $entry['allow_registration'])
@@ -37,7 +54,7 @@ function prepare_entry(array $entry) : array
 
   // Check whether the event is private
   if (is_private_event($entry['private']) &&
-    !getWritable($entry['create_by'], $entry['room_id']))
+      ($kiosk || !getWritable($entry['create_by'], $entry['room_id'])))
   {
     $entry['private'] = true;
 
@@ -88,7 +105,7 @@ function map_add_booking(array $entry, &$column, $start_first_slot, $start_last_
   //       tentative
 
   // $column is a column of the map of the screen that will be displayed, and is an array
-  // indexed by the number of nominal seconds (ie ignoring DST changes] since the
+  // indexed by the number of nominal seconds (ie ignoring DST changes) since the
   // start of the calendar day which has the start of the booking day.  Each element of
   // the array consists of an array of entries that fall in that slot.
   //
@@ -105,7 +122,7 @@ function map_add_booking(array $entry, &$column, $start_first_slot, $start_last_
   //       is_multiday_end    a boolean indicating if the booking stretches beyond the day end
   //       n_slots            the number of slots the booking lasts (tentatively set to 1)
 
-  // s is the number of nominal seconds (ie ignoring DST changes] since the
+  // s is the number of nominal seconds (ie ignoring DST changes) since the
   // start of the calendar day which has the start of the booking day
 
 
@@ -273,7 +290,7 @@ function cell_html(array $cell, array $query_vars, $is_invalid = false) : string
   // $is_invalid specifies whether the slot actually exists or is one of the non-existent
   // slots in the transition to DST
 
-  global $enable_periods, $show_plus_link;
+  global $enable_periods, $show_plus_link, $prevent_booking_on_holidays, $prevent_booking_on_weekends;
 
   $html = '';
   $classes = array();
@@ -300,6 +317,14 @@ function cell_html(array $cell, array $query_vars, $is_invalid = false) : string
     else
     {
       $classes[] = 'new';
+      // Add classes for weekends and holidays
+      $date = new DateTime();
+      $date->setDate(
+        $query_vars['new_times']['year'],
+        $query_vars['new_times']['month'],
+        $query_vars['new_times']['day']
+      );
+      $classes = array_merge($classes, get_date_classes($date));
     }
 
     // If there's no booking or if there are multiple bookings then make the slot one unit long
@@ -310,8 +335,17 @@ function cell_html(array $cell, array $query_vars, $is_invalid = false) : string
     // If the room isn't booked then allow it to be booked
     if (empty($cell))
     {
-      // Don't provide a link if the slot doesn't really exist
-      if (!$is_invalid)
+      // Don't provide a link if the slot doesn't really exist or if the user is logged in, but not a booking admin,
+      // and it's a holiday/weekend and bookings on holidays/weekends are not allowed.  (We provide a link if they
+      // are not logged in because they might want to click and login as an admin).
+      if ($is_invalid ||
+          ((null !== session()->getCurrentUser()) && !is_book_admin($query_vars['new_times']['room']) &&
+            (($prevent_booking_on_holidays && in_array('holiday', $classes)) ||
+             ($prevent_booking_on_weekends && in_array('weekend', $classes)))))
+      {
+        $html .= '<span class="not_allowed"></span>';
+      }
+      else
       {
         $vars = ($enable_periods) ? $query_vars['new_periods'] : $query_vars['new_times'];
         $query = http_build_query($vars, '', '&');
@@ -467,11 +501,20 @@ function room_cell_html(array $room, array $vars) : string
 //    $text     contains the date, formatted as a string (not escaped - allowed to contain HTML tags)
 //    $link     the href to be used for the link
 //    $date     the date in yyyy-mm-dd format
-function day_cell_html($text, $link, $date) : string
+function day_cell_html(string $text, string $link, string $iso_date) : string
 {
   $html = '';
   // Put the date into a data attribute so that it can be picked up by JavaScript
-  $html .= '<th data-date="' . htmlspecialchars($date) . '">';
+  $html .= '<th data-date="' . htmlspecialchars($iso_date) . '"';
+
+  // Add classes for weekends and holidays
+  $classes = get_date_classes(new DateTime($iso_date));
+  if (!empty($classes))
+  {
+    $html .= ' class="' . implode(' ', $classes) . '"';
+  }
+
+  $html .= '>';
   $html .= '<a href="' . htmlspecialchars($link) . '"' .
            ' title="' . htmlspecialchars(get_vocab("viewday")) . '">';
   $html .= $text;  // allowed to contain HTML tags - do not escape
@@ -623,13 +666,21 @@ function get_rooms_header_cells($rooms, $vars) : string
 }
 
 
-function day_table_innerhtml($view, $year, $month, $day, $area_id, $room_id, $timetohighlight=null) : string
+function day_table_innerhtml($view, $year, $month, $day, $area_id, $room_id, $timetohighlight=null, ?string $kiosk=null) : string
 {
   global $enable_periods;
   global $times_along_top, $row_labels_both_sides, $column_labels_both_ends;
   global $resolution, $morningstarts, $morningstarts_minutes;
 
-  $rooms = get_rooms($area_id);
+  if ($kiosk === 'room')
+  {
+    $rooms = array(get_room_details($room_id));
+  }
+  else
+  {
+    $rooms = get_rooms($area_id);
+  }
+
   $n_rooms = count($rooms);
 
   if ($n_rooms == 0)
@@ -640,6 +691,22 @@ function day_table_innerhtml($view, $year, $month, $day, $area_id, $room_id, $ti
 
   $start_first_slot = get_start_first_slot($month, $day, $year);
   $start_last_slot = get_start_last_slot($month, $day, $year);
+  // Keep a count of the number of slots at the start of the day that we're
+  // not showing (will only be relevant in kiosk mode).
+  $skipped_slots = 0;
+
+  // If we are in kiosk mode we are not interested in what has already happened
+  if (isset($kiosk))
+  {
+    $now = time();
+    $start_next_slot = $start_first_slot + $resolution;
+    while (($now > $start_next_slot) && ($start_next_slot < $start_last_slot))
+    {
+      $start_first_slot = $start_next_slot;
+      $skipped_slots++;
+      $start_next_slot = $start_first_slot + $resolution;
+    }
+  }
 
   // Work out whether there's a possibility that a time slot is invalid,
   // in other words whether the booking day includes a transition into DST.
@@ -667,8 +734,8 @@ function day_table_innerhtml($view, $year, $month, $day, $area_id, $room_id, $ti
     }
   }
 
-  $n_time_slots = get_n_time_slots();
-  $morning_slot_seconds = (($morningstarts * 60) + $morningstarts_minutes) * 60;
+  $n_time_slots = get_n_time_slots() - $skipped_slots;
+  $morning_slot_seconds = ((($morningstarts * 60) + $morningstarts_minutes) * 60) + ($skipped_slots * $resolution);
   $evening_slot_seconds = $morning_slot_seconds + (($n_time_slots - 1) * $resolution);
 
 
@@ -678,6 +745,11 @@ function day_table_innerhtml($view, $year, $month, $day, $area_id, $room_id, $ti
   $slots = get_slots($month, $day, $year);
   if (isset($slots))
   {
+    // Remove the skipped slots from the start of the first day's array
+    for ($i=0; $i<$skipped_slots; $i++)
+    {
+      array_shift($slots[0]);
+    }
     // Add some data to enable the JavaScript to draw the timeline
     $thead .= ' data-slots="' . htmlspecialchars(json_encode($slots)) . '"';
     $thead .= ' data-timeline-vertical="' . (($times_along_top) ? 'true' : 'false') . '"';
@@ -722,7 +794,7 @@ function day_table_innerhtml($view, $year, $month, $day, $area_id, $room_id, $ti
   }  // end standard view (for the header)
 
   // next: line to display times on right side
-  if (!empty($row_labels_both_sides))
+  if ($row_labels_both_sides)
   {
     $header_inner .= $first_last_html;
   }
@@ -783,7 +855,7 @@ function day_table_innerhtml($view, $year, $month, $day, $area_id, $room_id, $ti
         }
         $tbody .= cell_html($today[$room['id']][$day][$s], $query_vars, $is_invalid[$s]);
       }  // end for (looping through the times)
-      if ( false != $row_labels_both_sides )
+      if ($row_labels_both_sides)
       {
         $tbody .= $row_label;
       }
@@ -850,7 +922,7 @@ function day_table_innerhtml($view, $year, $month, $day, $area_id, $room_id, $ti
       }
 
       // next lines to display times on right side
-      if ( false != $row_labels_both_sides )
+      if ($row_labels_both_sides)
       {
         $tbody .= time_cell_html($s, $url);
       }
@@ -887,9 +959,9 @@ function get_flex_div($slots, $classes, $title=null, $text=null) : string
 
   $result .= '>';
 
-  if (isset($text) && ($text != ''))
+  if (isset($text) && ($text !== ''))
   {
-    $result .= htmlspecialchars($title);
+    $result .= htmlspecialchars($text);
   }
 
   $result .= '</div>';
@@ -953,7 +1025,7 @@ function get_day($t, $view)
 }
 
 
-function multiday_view_all_rooms_innerhtml($view, $view_all, $year, $month, $day, $area_id, $room_id)
+function multiday_view_all_rooms_innerhtml(string $view, int $view_all, int $year, int $month, int $day, int $area_id, int $room_id) : string
 {
   global $row_labels_both_sides, $column_labels_both_ends;
   global $weekstarts;
@@ -1084,11 +1156,16 @@ function multiday_view_all_rooms_innerhtml($view, $view_all, $year, $month, $day
         $link = multisite($link);
         $t = mktime(12, 0, 0, $month, $day_start_interval + $j, $year);
         $text = ($i === 0) ? get_day($t, $view) : get_date($t, $view);
-        $header_inner_rows[$i] .= '<th><a href="' . htmlspecialchars($link) . '">' . htmlspecialchars($text) . "</a></th>\n";
+        $date = new DateTime();
+        $date->setTimestamp($t);
+        $classes = get_date_classes($date);
+        $header_inner_rows[$i] .= '<th' .
+          ((!empty($classes)) ? ' class="' . implode(' ', $classes) . '"' : '') .
+          '><a href="' . htmlspecialchars($link) . '">' . htmlspecialchars($text) . "</a></th>\n";
       }
 
       // next line to display rooms on right side
-      if (!empty($row_labels_both_sides))
+      if ($row_labels_both_sides)
       {
         $header_inner_rows[$i] .= $first_last_html;
       }
@@ -1137,7 +1214,18 @@ function multiday_view_all_rooms_innerhtml($view, $view_all, $year, $month, $day
         }
 
         $d = $day_start_interval + $j;
-        $tbody .= "<td>";
+
+        // Add a classes for weekends and classes
+        $date = new DateTime();
+        $date->setDate($year, $month, $d);
+        $classes = get_date_classes($date);
+
+        $tbody .= '<td';
+        if (!empty($classes))
+        {
+          $tbody .= ' class="' . implode(' ', $classes) . '"';
+        }
+        $tbody .= '>';
         $vars = array(
             'view'      => 'day',
             'view_all'  => $view_all,
@@ -1183,7 +1271,7 @@ function multiday_view_all_rooms_innerhtml($view, $view_all, $year, $month, $day
         $tbody .= "</td>\n";
       }
 
-      if (!empty($row_labels_both_sides))
+      if ($row_labels_both_sides)
       {
         $tbody .= $row_label;
       }
@@ -1207,7 +1295,7 @@ function multiday_view_all_rooms_innerhtml($view, $view_all, $year, $month, $day
 //    $month, $day, $year   the start of the interval
 //    $n_days               the number of days in the interval
 //    $day_cells            if the columns/rows represent a full day (as in the week/month all rooms views)
-function get_slots($month, $day, $year, $n_days=1, $day_cells=false)
+function get_slots(int $month, int $day, int $year, int $n_days=1, bool $day_cells=false) : ?array
 {
   global $enable_periods, $morningstarts, $morningstarts_minutes, $resolution;
 
@@ -1226,7 +1314,7 @@ function get_slots($month, $day, $year, $n_days=1, $day_cells=false)
       $d = $day + $j;
 
       // If there's more than one day in the interval then don't include the hidden days in the array, because
-      // they don't appear in the DOM.  If there's only one day then we've managed to display the hiden day.
+      // they don't appear in the DOM.  If there's only one day then we've managed to display the hidden day.
       if (($n_days > 1) &&
           is_hidden_day(date('w', mktime($morningstarts, $morningstarts_minutes, 0, $month, $d, $year))))
       {
@@ -1269,7 +1357,7 @@ function get_slots($month, $day, $year, $n_days=1, $day_cells=false)
 }
 
 
-function week_room_table_innerhtml($view, $view_all, $year, $month, $day, $area_id, $room_id, $timetohighlight=null)
+function week_room_table_innerhtml(string $view, int $view_all, int $year, int $month, int $day, int $area_id, int $room_id, ?int $timetohighlight=null) : string
 {
   global $enable_periods;
   global $times_along_top, $row_labels_both_sides, $column_labels_both_ends;
@@ -1408,7 +1496,7 @@ function week_room_table_innerhtml($view, $view_all, $year, $month, $day, $area_
   }  // end standard view (for the header)
 
   // next line to display times on right side
-  if (!empty($row_labels_both_sides))
+  if ($row_labels_both_sides)
   {
     $header_inner .= $first_last_html;
   }
@@ -1474,7 +1562,7 @@ function week_room_table_innerhtml($view, $view_all, $year, $month, $day, $area_
         }
         $tbody .= cell_html($week_map[$room_id][$thisday][$s], $query_vars, $is_invalid);
       }  // end looping through the time slots
-      if ( false != $row_labels_both_sides )
+      if ($row_labels_both_sides)
       {
         $tbody .= $row_label;
       }
@@ -1550,7 +1638,7 @@ function week_room_table_innerhtml($view, $view_all, $year, $month, $day, $area_
       }    // for loop
 
       // next lines to display times on right side
-      if ( false != $row_labels_both_sides )
+      if ($row_labels_both_sides)
         {
           $tbody .= time_cell_html($s, $url);
         }
@@ -1565,7 +1653,7 @@ function week_room_table_innerhtml($view, $view_all, $year, $month, $day, $area_
 
 
 // 3-value compare: Returns result of compare as "< " "= " or "> ".
-function cmp3($a, $b)
+function cmp3(int $a, int $b) : string
 {
   if ($a < $b)
   {
@@ -1579,7 +1667,8 @@ function cmp3($a, $b)
 }
 
 
-function get_table_head()
+// Gets the table header row for the single room month view
+function get_table_head() : string
 {
   global $weekstarts;
 
@@ -1590,16 +1679,22 @@ function get_table_head()
   $html .= "<tr>\n";
   for ($i = 0; $i< DAYS_PER_WEEK; $i++)
   {
-    if (is_hidden_day(($i + $weekstarts) % DAYS_PER_WEEK))
+    $classes = [];
+    $dow = ($i + $weekstarts) % DAYS_PER_WEEK;
+    if (is_hidden_day($dow))
     {
-      // These days are to be hidden in the display (as they are hidden, just give the
-      // day of the week in the header row
-      $html .= "<th class=\"hidden_day\">" . day_name(($i + $weekstarts)%DAYS_PER_WEEK) . "</th>";
+      $classes[] = 'hidden_day';
     }
-    else
+    if (is_weekend($dow))
     {
-      $html .= "<th>" . day_name(($i + $weekstarts)%DAYS_PER_WEEK) . "</th>";
+      $classes[] = 'weekend';
     }
+    $html .= '<th';
+    if (!empty($classes))
+    {
+      $html .= ' class="' . implode(' ', $classes) . '"';
+    }
+    $html .= '>' . day_name(($i + $weekstarts)%DAYS_PER_WEEK) . '</th>';
   }
   $html .= "\n</tr>\n";
   $html .= "</thead>\n";
@@ -1608,7 +1703,7 @@ function get_table_head()
 }
 
 
-function get_blank_day($col)
+function get_blank_day(int $col) : string
 {
   global $weekstarts;
 
@@ -1621,7 +1716,7 @@ function get_blank_day($col)
 // and for entries starting before/ending after today.
 // There are 9 cases, for start time < = or > midnight this morning,
 // and end time < = or > midnight tonight.
-function get_booking_summary($start, $end, $day_start, $day_end)
+function get_booking_summary(int $start, int $end, int $day_start, int $day_end) : string
 {
   global $enable_periods, $area;
 
@@ -1682,7 +1777,7 @@ function get_booking_summary($start, $end, $day_start, $day_end)
 }
 
 
-function month_table_innerhtml($view, $view_all, $year, $month, $day, $area, $room)
+function month_table_innerhtml(string $view, int $view_all, int $year, int $month, int $day, int $area, int $room) : string
 {
 
   if ($view_all)
@@ -1696,10 +1791,11 @@ function month_table_innerhtml($view, $view_all, $year, $month, $day, $area, $ro
 }
 
 
-function month_room_table_innerhtml($view, $view_all, $year, $month, $day, $area, $room)
+function month_room_table_innerhtml(string $view, int $view_all, int $year, int $month, int $day, int $area, int $room) : string
 {
   global $weekstarts, $view_week_number, $show_plus_link, $monthly_view_entries_details;
   global $enable_periods, $morningstarts, $morningstarts_minutes;
+  global $prevent_booking_on_holidays, $prevent_booking_on_weekends;
 
   // Check that we've got a valid, enabled room
   if (is_null(get_room_name($room)) || !is_visible($room))
@@ -1717,7 +1813,7 @@ function month_room_table_innerhtml($view, $view_all, $year, $month, $day, $area
   $month_start = mktime(0, 0, 0, $month, 1, $year);
   // What column the month starts in: 0 means $weekstarts weekday.
   $weekday_start = (date("w", $month_start) - $weekstarts + DAYS_PER_WEEK) % DAYS_PER_WEEK;
-  $days_in_month = date("t", $month_start);
+  $last_day_of_month = (int) date("t", $month_start);
 
   $html .= get_table_head();
 
@@ -1735,10 +1831,10 @@ function month_room_table_innerhtml($view, $view_all, $year, $month, $day, $area
   // entries for the interval in one go, rather than doing a query for each day.
   $entries = get_entries_by_room($room,
                                  get_start_first_slot($month, 1, $year),
-                                 get_end_last_slot($month, $days_in_month, $year));
+                                 get_end_last_slot($month, $last_day_of_month, $year));
 
   // Draw the days of the month:
-  for ($d = 1; $d <= $days_in_month; $d++)
+  for ($d = 1; $d <= $last_day_of_month; $d++)
   {
     // Get the slot times
     $start_first_slot = get_start_first_slot($month, $d, $year);
@@ -1766,7 +1862,12 @@ function month_room_table_innerhtml($view, $view_all, $year, $month, $day, $area
     }
     else
     {
-      $html .= "<td class=\"valid\">\n";
+      // Add classes for weekends and holidays
+      $date = new DateTime();
+      $date->setDate($year, $month, $d);
+      $classes = get_date_classes($date);
+
+      $html .= '<td class="' . implode(' ', $classes) . "\">\n";
       $html .= "<div class=\"cell_container\">\n";
 
       $html .= "<div class=\"cell_header\">\n";
@@ -1793,28 +1894,40 @@ function month_room_table_innerhtml($view, $view_all, $year, $month, $day, $area
 
       $html .= "</div>\n";
 
-      // then the link to make a new booking
-      $vars['view'] = $view;
-
-      if ($enable_periods)
+      // Then the link to make a new booking.
+      // Don't provide a link if the slot doesn't really exist or if the user is logged in, but not a booking admin,
+      // and it's a holiday/weekend and bookings on holidays/weekends are not allowed.  (We provide a link if they
+      // are not logged in because they might want to click and login as an admin).
+      if ((null !== session()->getCurrentUser()) && !is_book_admin($room) &&
+          (($prevent_booking_on_holidays && in_array('holiday', $classes)) ||
+           ($prevent_booking_on_weekends && in_array('weekend', $classes))))
       {
-        $vars['period'] = 0;
+        $html .= '<span class="not_allowed"></span>';
       }
       else
       {
-        $vars['hour'] = $morningstarts;
-        $vars['minute'] = $morningstarts_minutes;
-      }
+        $vars['view'] = $view;
 
-      $query = http_build_query($vars, '', '&');
+        if ($enable_periods)
+        {
+          $vars['period'] = 0;
+        }
+        else
+        {
+          $vars['hour'] = $morningstarts;
+          $vars['minute'] = $morningstarts_minutes;
+        }
 
-      $html .= '<a class="new_booking" href="' . htmlspecialchars(multisite("edit_entry.php?$query")) . '"' .
-               ' aria-label="' . htmlspecialchars(get_vocab('create_new_booking')) . "\">\n";
-      if ($show_plus_link)
-      {
-        $html .= "<img src=\"images/new.gif\" alt=\"New\" width=\"10\" height=\"10\">\n";
+        $query = http_build_query($vars, '', '&');
+
+        $html .= '<a class="new_booking" href="' . htmlspecialchars(multisite("edit_entry.php?$query")) . '"' .
+                 ' aria-label="' . htmlspecialchars(get_vocab('create_new_booking')) . "\">\n";
+        if ($show_plus_link)
+        {
+          $html .= "<img src=\"images/new.gif\" alt=\"New\" width=\"10\" height=\"10\">\n";
+        }
+        $html .= "</a>\n";
       }
-      $html .= "</a>\n";
 
       // then any bookings for the day
       $html .= "<div class=\"booking_list\">\n";

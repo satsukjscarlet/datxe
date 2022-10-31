@@ -2,7 +2,6 @@
 namespace MRBS;
 
 use MRBS\Auth\AuthFactory;
-use MRBS\Session\SessionFactory;
 
 
 if (!isset($auth['session']))
@@ -40,22 +39,6 @@ function auth()
   }
 
   return $auth_obj;
-}
-
-
-// Convenience wrapper function to provide access to a Session object
-function session()
-{
-  global $auth;
-
-  static $session_obj = null;
-
-  if (is_null($session_obj))
-  {
-    $session_obj = SessionFactory::create($auth['session']);
-  }
-
-  return $session_obj;
 }
 
 
@@ -313,7 +296,7 @@ function getWritable($creator, $rooms=null, $all=true)
 
   // Always allowed to modify your own stuff
   $mrbs_user = session()->getCurrentUser();
-  if (isset($mrbs_user) && (strcasecmp($creator, $mrbs_user->username) === 0))
+  if (isset($mrbs_user) && isset($creator) && (strcasecmp_locale($creator, $mrbs_user->username) === 0))
   {
     return true;
   }
@@ -354,10 +337,11 @@ function showAccessDenied($view=null, $view_all=null, $year=null, $month=null, $
   echo "<div>\n";
   echo "<h1>" . get_vocab("accessdenied") . "</h1>\n";
   echo "<p>" . get_vocab("norights") . "</p>\n";
-  if (isset($server['HTTP_REFERER']))
+  $referrer = session()->getReferrer();
+  if (isset($referrer))
   {
     echo "<p>\n";
-    echo "<a href=\"" . htmlspecialchars($server['HTTP_REFERER']) . "\">\n" . get_vocab("returnprev") . "</a>\n";
+    echo "<a href=\"" . htmlspecialchars($referrer) . "\">\n" . get_vocab("returnprev") . "</a>\n";
     echo "</p>\n";
   }
   echo "</div>\n";
@@ -454,9 +438,7 @@ function is_user_admin()
 // Doesn't do anything at the moment, but allows for customisation or future development
 function is_visible($room)
 {
-  //return true;
-  // This is an example where rooms with ids 1 are only visible to admins.
-  return (in_array($room, array(3,4,5,6,7,8,9,10,11,12,13))) ? is_admin() : true; 
+  return true;
 }
 
 

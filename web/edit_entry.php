@@ -29,14 +29,7 @@ use MRBS\Form\FieldSelect;
 // record extra details about bookings then you can do so and this page should
 // automatically recognise them and handle them.    NOTE: if you add a column to
 // the entry table you must add an identical column to the repeat table.
-
-// Nếu bạn muốn thêm một số cột bổ sung vào mục nhập và lặp lại các bảng thành
-// ghi lại các chi tiết bổ sung về đặt chỗ thì bạn có thể làm như vậy và trang này sẽ
-// tự động nhận dạng chúng và xử lý chúng. LƯU Ý: nếu bạn thêm một cột vào
-// bảng nhập bạn phải thêm một cột giống hệt vào bảng lặp lại.
 //
-//
-
 // At the moment support is limited to the following column types:
 //
 // MySQL        PostgreSQL            Form input type
@@ -58,8 +51,6 @@ use MRBS\Form\FieldSelect;
 // NOTE 1: For char(n) and varchar(n) fields, a text input will be presented if
 // n is less than or equal to $text_input_max, otherwise a textarea box will be
 // presented.
-// LƯU Ý 1: Đối với các trường char (n) và varchar (n), đầu vào văn bản sẽ được hiển thị nếu
-// n nhỏ hơn hoặc bằng $ text_input_max, nếu không một hộp textarea sẽ được hiển thị.
 //
 // NOTE 2: PostgreSQL booleans are not supported, due to difficulties in
 // handling the fields in a database independent way (a PostgreSQL boolean
@@ -67,40 +58,21 @@ use MRBS\Form\FieldSelect;
 // tinyint returns an int).   In order to have a boolean field in the room
 // table you should use a smallint in PostgreSQL or a smallint or a tinyint
 // in MySQL.
-// LƯU Ý 2: Các boolean của PostgreSQL không được hỗ trợ, do khó khăn trong việc xử lý các trường theo cách 
-// độc lập với cơ sở dữ liệu (boolean PostgreSQL sẽ trả về kiểu boolean PHP khi được truy vấn PHP đọc, 
-// trong khi tinyint của MySQL trả về int). Để có trường boolean trong bảng room, 
-// bạn nên sử dụng smallint trong PostgreSQL hoặc smallint hoặc tinyint trong MySQL.
 //
-
 // You can put a description of the column that will be used as the label in
 // the form in the $vocab_override variable in the config file using the tag
 // 'entry.[columnname]'.   (Note that it is not necessary to add a
 // 'repeat.[columnname]' tag.   The entry tag is sufficient.)
-// Bạn có thể đặt mô tả về cột sẽ được sử dụng làm nhãn trong
-// biểu mẫu trong biến $ vocab_override trong tệp cấu hình sử dụng thẻ
-// 'mục nhập. [tên cột]'. (Lưu ý rằng không cần thiết phải thêm
-// thẻ 'lặp lại. [columnname]'. Thẻ nhập là đủ.)
 //
 // For example if you want to add a column recording the number of participants
 // you could add a column to the entry and repeat tables called 'participants'
 // of type int.  Then in the appropriate lang file(s) you would add the line
-// For example if you want to add a column recording the number of participants
-// you could add a column to the entry and repeat tables called 'participants'
-// of type int.  Then in the appropriate lang file(s) you would add the line
-// Ví dụ: nếu bạn muốn thêm một cột ghi số người tham gia
-// bạn có thể thêm một cột vào mục nhập và lặp lại các bảng được gọi là 'người tham gia'
-// kiểu int. Sau đó, trong (các) tệp lang thích hợp, bạn sẽ thêm dòng
-// Ví dụ: nếu bạn muốn thêm một cột ghi số người tham gia
-// bạn có thể thêm một cột vào mục nhập và lặp lại các bảng được gọi là 'người tham gia'
-// kiểu int. Sau đó, trong (các) tệp lang thích hợp, bạn sẽ thêm dòng
 //
 // $vocab_override['en']['entry.participants'] = "Participants";  // or appropriate translation
 //
 // If MRBS can't find an entry for the field in the lang file or $vocab_override,
 // then it will use the fieldname, eg 'coffee_machine'.
-// Nếu MRBS không thể tìm thấy mục nhập cho trường trong tệp lang hoặc $ vocab_override,
-// thì nó sẽ sử dụng tên trường, ví dụ: 'coffee_machine'.
+
 
 require 'defaultincludes.inc';
 require_once 'mrbs_sql.inc';
@@ -335,12 +307,12 @@ function get_field_start_time($value, $disabled=false)
                                               $current_s,
                                               false,
                                               $disabled,
-                                              true));
-        // ->addControlElement(get_all_day($areas[$area_id],
-        //                                 'all_day',
-        //                                 'all_day',
-        //                                 false,
-        //                                 $disabled));
+                                              true))
+        ->addControlElement(get_all_day($areas[$area_id],
+                                        'all_day',
+                                        'all_day',
+                                        false,
+                                        $disabled));
 
   // Generate the templates for each area
   foreach ($areas as $a)
@@ -351,12 +323,12 @@ function get_field_start_time($value, $disabled=false)
                                                 $current_s,
                                                 true,
                                                 true,
-                                                true));
-          // ->addControlElement(get_all_day($a,
-          //                                 'all_day' . $a['id'],
-          //                                 'all_day',
-          //                                 true,
-          //                                 true));
+                                                true))
+          ->addControlElement(get_all_day($a,
+                                          'all_day' . $a['id'],
+                                          'all_day',
+                                          true,
+                                          true));
   }
 
   return $field;
@@ -536,7 +508,7 @@ function get_field_type($value, $disabled=false)
   {
     return null;
   }
-  
+
   // If it's a mandatory field add a blank option to force a selection
   if (!empty($is_mandatory_field['entry.type']))
   {
@@ -608,6 +580,9 @@ function get_field_custom($key, $disabled=false)
 {
   global $custom_fields, $custom_fields_map;
   global $is_mandatory_field, $text_input_max;
+  global $select_options, $datalist_options;
+
+  // TODO: have a common way of generating custom fields for all tables
 
   // First check that the custom field exists.  It normally will, but won't if
   // $edit_entry_field_order contains a value for which a field doesn't exist.
@@ -626,10 +601,12 @@ function get_field_custom($key, $disabled=false)
     $class = 'FieldInputCheckbox';
   }
   // Output a textarea if it's a character string longer than the limit for a
-  // text input
+  // text input and it's not a select or datalist element
   elseif (($custom_field['nature'] == 'character') &&
            isset($custom_field['length']) &&
-           ($custom_field['length'] > $text_input_max))
+           ($custom_field['length'] > $text_input_max) &&
+           empty($select_options["entry.$key"]) &&
+           empty($datalist_options["entry.$key"]))
   {
     // HTML5 does not allow a pattern attribute for the textarea element
     $class = 'FieldTextarea';
@@ -942,13 +919,13 @@ function get_field_skip_conflicts($disabled=false)
 
 function get_fieldset_registration()
 {
-  global $enable_registration;
+  global $enable_registration, $enable_registration_users;
   global $allow_registration, $registrant_limit_enabled, $registrant_limit;
   global $registration_opens, $registration_opens_enabled;
   global $registration_closes, $registration_closes_enabled;
   global $enable_periods, $periods_booking_opens;
 
-  if (!$enable_registration || !is_book_admin())
+  if (!$enable_registration || (!$enable_registration_users && !is_book_admin()))
   {
     return null;
   }
@@ -1177,11 +1154,12 @@ Form::checkToken($post_only=true);
 // We might be going through edit_entry more than once, for example if we have to log on on the way.  We
 // still need to preserve the original calling page so that once we've completed edit_entry_handler we can
 // go back to the page we started at (rather than going to the default view).  If this is the first time
-// through, then $server['HTTP_REFERER'] holds the original caller.    If this is the second time through
+// through, then $referrer holds the original caller.    If this is the second time through
 // we will have stored it in $returl.
 if (!isset($returl))
 {
-  $returl = isset($server['HTTP_REFERER']) ? $server['HTTP_REFERER'] : '';
+  $referrer = session()->getReferrer();
+  $returl = $referrer ?? '';
 }
 
 // Check the user is authorised for this page
@@ -1223,6 +1201,10 @@ if (isset($start_date))
     list($rep_end_year, $rep_end_month, $rep_end_day) = explode('-', $end_date);
   }
 }
+else
+{
+  $start_date = format_iso_date($year, $month, $day);
+}
 
 
 // This page will either add or modify a booking
@@ -1260,17 +1242,7 @@ if (isset($id))
   }
   // Need to clear some data if entry is private and user
   // does not have permission to edit/view details
-  if (isset($copy) && ($mrbs_username != $entry['create_by']))
-  {
-    // Entry being copied by different user
-    // If they don't have rights to view details, clear them
-    $privatewriteable = getWritable($entry['create_by'], $entry['room_id']);
-    $keep_private = (is_private_event($private) && !$privatewriteable);
-  }
-  else
-  {
-    $keep_private = FALSE;
-  }
+  $keep_private = isset($copy) && is_private_event($private) && !getWritable($entry['create_by'], $entry['room_id']);
 
   // default settings
   $rep_day = array();
@@ -1505,7 +1477,12 @@ else
     $end_minutes = intval($end_seconds/60);
     $end_hour = intval($end_minutes/60);
     $end_minute = $end_minutes%60;
-    $end_time = mktime($end_hour, $end_minute, 0, $month, $day, $year);
+    if (!isset($end_date))
+    {
+      $end_date = $start_date;
+    }
+    list($end_year, $end_month, $end_day) = explode('-', $end_date);
+    $end_time = mktime($end_hour, $end_minute, 0, $end_month, $end_day, $end_year);
     $duration = $end_time - $start_time - cross_dst($start_time, $end_time);
   }
   else
@@ -1542,7 +1519,7 @@ else
     // allowed multi-day bookings then make sure it is on the first booking day.
     if (is_book_admin() || !$auth['only_admin_can_book_multiday'])
     {
-      $end_time = fit_to_booking_day($end_time, $back=true);
+      $end_time = fit_to_booking_day($end_time);
     }
     else
     {
@@ -1840,10 +1817,10 @@ $form->addElement(get_fieldset_registration());
 // or else if it's an existing booking and it's a series.  (It's not particularly obvious but
 // if edit_type is "series" then it means that either you're editing an existing
 // series or else you're making a new booking.  This should be tidied up sometime!)
-// if (($edit_type == "series") && $repeats_allowed)
-// {
-//   $form->addElement(get_fieldset_repeat());
-// }
+if (($edit_type == "series") && $repeats_allowed)
+{
+  $form->addElement(get_fieldset_repeat());
+}
 
 // Checkbox for no email
 if (need_to_send_mail() &&

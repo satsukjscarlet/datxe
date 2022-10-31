@@ -1061,6 +1061,8 @@ $(document).on('page_ready', function() {
       ?>
       var resizeStart = function(event, ui)
       {
+        resizeStart.originalOffset = ui.element.offset();
+
         resizeStart.oldParams = Table.getBookingParams(ui.originalElement.find('a'));
 
         resizeStart.originalRectangle = {
@@ -1227,7 +1229,26 @@ $(document).on('page_ready', function() {
                     window.alert(alertMessage);
                   }
                 },
-               'json');
+               'json')
+          .fail(function() {
+            <?php
+            // The Ajax request failed for some reason, so remove the "Saving ..." message
+            // and restore the element to its original position and size.
+            ?>
+            booking.removeClass('saving')
+                   .next().remove();
+            ui.element.offset(resizeStart.originalOffset)
+                      .width(ui.originalSize.width)
+                      .height(ui.originalSize.height);
+            <?php // Re-initialise the table ?>
+            $('table.dwm_main').trigger('tableload');
+            <?php // Allow some time for the changes above to complete and then alert the user ?>
+            setTimeout(function() {
+                alert("<?php echo escape_js(get_vocab('resize_error'))?>");
+              }, 250
+            );
+
+          });
 
       };  <?php // resizeStop ?>
 
@@ -1411,6 +1432,28 @@ $(document).on('page_ready', function() {
             }
           })
         .first().trigger('mouseenter');
+
+    <?php
+    // In kiosk mode disable all event listeners and links and
+    // replace them with a single listener that will throw a
+    // confirm dialog for exiting kiosk mode.
+    ?>
+    if (args.kiosk)
+    {
+      $('a').on('click', function(e)
+      {
+        e.preventDefault();
+        return false;
+      });
+      $('*').off();
+      $(window).on('click keypress', function() {
+        if (window.confirm('<?php echo escape_js(get_vocab('exit_kiosk_mode'))?>'))
+        {
+          // TODO Go to a login page
+        }
+        return false;
+      });
+    }
 
     }).trigger('tableload');
 

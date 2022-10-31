@@ -38,8 +38,8 @@ function display_buttons($row, $is_series)
     $form->addHiddenInputs($hidden_inputs);
 
     $element = new ElementInputSubmit();
-    // $element->setAttribute('value', get_vocab('approve'));
-    // $form->addElement($element);
+    $element->setAttribute('value', get_vocab('approve'));
+    $form->addElement($element);
 
     $form->render();
 
@@ -177,7 +177,7 @@ function display_series_title_row($row)
         htmlspecialchars($row['name']) ."</a></td>\n";
 
   // create_by, area and room names
-  echo "<td>" . htmlspecialchars(get_display_name($row['create_by'])) . "</td>\n";
+  echo "<td>" . htmlspecialchars(auth()->getDisplayName($row['create_by'])) . "</td>\n";
   echo "<td>" . htmlspecialchars($row['area_name']) . "</td>\n";
   echo "<td>" . htmlspecialchars($row['room_name']) . "</td>\n";
 
@@ -207,7 +207,7 @@ function display_entry_row(array $row)
         htmlspecialchars($row['name']) ."</a></td>\n";
 
   // create_by, area and room names
-  echo "<td>" . htmlspecialchars(get_display_name($row['create_by'])) . "</td>\n";
+  echo "<td>" . htmlspecialchars(auth()->getDisplayName($row['create_by'])) . "</td>\n";
   echo "<td>" . htmlspecialchars($row['area_name']) . "</td>\n";
   echo "<td>" . htmlspecialchars($row['room_name']) . "</td>\n";
 
@@ -297,7 +297,7 @@ $rows = array();
 
 while (false !== ($row = $res->next_row_keyed()))
 {
-  if ((strcasecmp($row['create_by'], $mrbs_username) === 0) || is_book_admin($row['room_id']))
+  if ((strcasecmp_locale($row['create_by'], $mrbs_username) === 0) || is_book_admin($row['room_id']))
   {
     $rows[] = $row;
   }

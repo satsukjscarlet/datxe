@@ -52,7 +52,7 @@ if (($current_db_schema_version < DB::DB_SCHEMA_VERSION) ||
     }
     else
     {
-      $admin_handle = DBFactory::create($dbsys, $db_host, $db_admin_username, $db_admin_password, $db_database, 0, $db_port);
+      $admin_handle = DBFactory::create($dbsys, $db_host, $db_admin_username, $db_admin_password, $db_database, 0, $db_port, $db_options);
     }
   }
 
@@ -138,7 +138,7 @@ function upgrade_echo($message)
 
 // Upgrade between database schema versions.
 // Returns FALSE on error, TRUE is successful
-function upgrade_database($local, $from, $to, DB $upgrade_handle)
+function upgrade_database(bool $local, int $from, int $to, DB $upgrade_handle) : bool
 {
   // $local is a boolean specifying whether the upgrades are global MRBS ones ($local === false)
   // or local upgrades ($local === true);

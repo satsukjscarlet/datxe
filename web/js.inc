@@ -33,18 +33,18 @@ if ($multisite && isset($site) && ($site !== ''))
 // file can't use jQuery.
 script('js/init.js.php', true);
 
-script(($debug) ? 'jquery/jquery-3.6.0.js' : 'jquery/jquery-3.6.0.min.js');
+script(($debug) ? 'jquery/jquery-3.6.1.js' : 'jquery/jquery-3.6.1.min.js');
 
 // We need the migration script now that we are running jQuery 3.0+, or at least
 // until we are confident that our JavaScript is not using any features that have
 // been removed.   The uncompressed version will output warnings about removed and
 // deprecated features to the console
-script(($debug) ? 'jquery/jquery-migrate-3.3.2.js' : 'jquery/jquery-migrate-3.3.2.min.js');
+script(($debug) ? 'jquery/jquery-migrate-3.4.0.js' : 'jquery/jquery-migrate-3.4.0.min.js');
 
 // We are using the jQuery UI library, which has been custom built to include the following components:
 //   - Core
 //      - as defined by dependencies in order to support the required interactions and widgets
-//      - no need for jQuery 1.7 support
+//      - no need for jQuery 1.8 support
 //
 //   - Interactions
 //      - Draggable
@@ -75,11 +75,11 @@ if (null !== ($select2_lang_path = get_select2_lang_path()))
   script($select2_lang_path, true);
 }
 
-// if (null !== ($flatpickr_lang_path = get_flatpickr_lang_path()))
-// {
-//   script($flatpickr_lang_path, true);
-// }
-script("js/flatpickr/l10n/vn.js", true);
+if (null !== ($flatpickr_lang_path = get_flatpickr_lang_path()))
+{
+  script($flatpickr_lang_path, true);
+}
+
 // dataTables initialisation
 if (in_array($page, array('admin', 'edit_users', 'pending', 'report', 'search', 'view_entry')))
 {

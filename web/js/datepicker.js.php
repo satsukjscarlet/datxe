@@ -29,7 +29,7 @@ function iPadMobileFix() {
         }
       };
     };
-};
+}
 
 <?php
 // Turn a JavaScript year, month, day (ie with Jan = 0) into an
@@ -38,26 +38,68 @@ function iPadMobileFix() {
 ?>
 function getISODate(year, month, day)
 {
-  while (month > 11)
-  {
-    month = month-12;
-    year++;
-  }
+  var date = new Date(Date.UTC(year, month, day));
+  return date.toISOString().split('T')[0];
+}
 
-  while (month < 0)
-  {
-    month = month+12;
-    year--;
-  }
+<?php
+// Functions to find the start and end dates of a week and month given a
+// date in YYYY-MM-DD format.
+// weekStarts is the start day of the week (0 for Sunday, 1 for Monday etc.)
+// (Could be implemented by extending the Date class, but extends isn't
+// supported by IE11.)
+?>
 
-  return [
-      year,
-      ('0' + (month + 1)).slice(-2),
-      ('0' + day).slice(-2)
-    ].join('-');
+function weekStart(date, weekStarts) {
+  var d = new Date(date);
+  var diff = d.getDay() - weekStarts;
+  if (diff < 0)
+  {
+    diff += 7;
+  }
+  d.setDate(d.getDate() - diff);
+  return d.toISOString().split('T')[0];
+}
+
+function weekEnd(date, weekStarts) {
+  var d = new Date(weekStart(date, weekStarts));
+  d.setDate(d.getDate() + 6);
+  return d.toISOString().split('T')[0];
+}
+
+function monthStart(date) {
+  var d = new Date(date);
+  d.setDate(1);
+  return d.toISOString().split('T')[0];
+}
+
+function monthEnd(date) {
+  var d = new Date(date);
+  d.setMonth(d.getMonth() + 1);
+  d.setDate(0);
+  return d.toISOString().split('T')[0];
 }
 
 
+// Returns an array of dates in the range startDate..endDate, optionally
+// excluding hidden days.
+function datesInRange(startDate, endDate, excludeHiddenDays) {
+  var result=[];
+  var e=new Date(endDate);
+  var hiddenDays = [<?php echo implode(',', $hidden_days)?>];
+
+  <?php // dates can be compared using > and < but not == or === ?>
+  for (var d=new Date(startDate); !(d>e); d.setDate(d.getDate()+1))
+  {
+    if (excludeHiddenDays && (hiddenDays.indexOf(d.getDay()) >= 0))
+    {
+      continue;
+    }
+    result.push(d.toISOString().split('T')[0]);
+  }
+
+  return result;
+}
 
 $(document).on('page_ready', function() {
 
@@ -122,11 +164,17 @@ $(document).on('page_ready', function() {
         <?php
       }
       ?>
+
+      <?php // And add a class if it's a weekend day ?>
+      var weekDays = [<?php echo implode(',', $weekdays)?>];
+      if (weekDays.indexOf(dayElem.dateObj.getDay()) < 0) {
+        dayElem.classList.add('mrbs-weekend');
+      }
     };
 
 
   <?php
-  // Sync all the minicalendars with this instance of one.   In other words
+  // Sync all the mini-calendars with this instance of one. In other words
   // make the mini-calendars show sequential months, aligning with this one.
   ?>
   function syncCals(instance)
@@ -157,7 +205,7 @@ $(document).on('page_ready', function() {
   var onMinicalChange = function(selectedDates, dateStr, instance) {
       <?php
       // The order of the query string parameters is important here.  It needs to be the
-      // same as the order in the Prev anbd Next navigation links so that the pre-fetched
+      // same as the order in the Prev and Next navigation links so that the pre-fetched
       // pages can be used when possible.
       ?>
       var href = 'index.php';
@@ -169,6 +217,12 @@ $(document).on('page_ready', function() {
       {
         href += '&site=' + encodeURIComponent(args.site);
       }
+      <?php
+      // Set the new date in the mini-calendar, in order to avoid the previous one
+      // still showing as selected.
+      // TODO: change the date in the other mini-calendar of the date appears there as well?
+      ?>
+      instance.setDate([selectedDates[0], selectedDates[0]], false);
       updateBody(href);  <?php // Update the body via an Ajax call to avoid flickering ?>
     };
 
@@ -184,7 +238,7 @@ $(document).on('page_ready', function() {
         var submit = $(this.element).data('submit');
         if (submit)
         {
-          $('#' + submit).submit();
+          $('#' + submit).trigger('submit');
         }
         else
         {
@@ -195,7 +249,7 @@ $(document).on('page_ready', function() {
 
   <?php
   // Disable hidden days, unless the user is a booking admin.  (If they're a booking
-  // admin then they'll still be able to select the date but it will be given a different
+  // admin then they'll still be able to select the date, but it will be given a different
   // class so that it can be styled differently - see code above in this file.)
   if (!empty($hidden_days))
   {
@@ -246,11 +300,53 @@ $(document).on('page_ready', function() {
         config.onMonthChange = onMonthChange;
         config.onYearChange = onYearChange;
         config.onChange = onMinicalChange;
+        <?php
+        // Setting a range only works if there are no hidden days: it does not make
+        // sense to set a start date of a range on a disabled day.
+        if (empty($hidden_days))
+        {
+          ?>
+          config.mode = 'range';
+          <?php
+        }
+        ?>
+
 
         var minicalendars = flatpickr('span.minicalendar', config);
 
         $.each(minicalendars, function (key, value) {
-            value.setDate(args.pageDate);
+            var startDate, endDate;
+            if (args.view === 'month')
+            {
+              startDate = monthStart(args.pageDate);
+              endDate = monthEnd(args.pageDate);
+            }
+            else if (args.view === 'week')
+            {
+              startDate = weekStart(args.pageDate, <?php echo $weekstarts?>);
+              endDate = weekEnd(args.pageDate, <?php echo $weekstarts?>);
+            }
+            else
+            {
+              startDate = args.pageDate;
+              endDate = startDate;
+            }
+            <?php
+            if (empty($hidden_days))
+            {
+              ?>
+              value.setDate([startDate, endDate]);
+              <?php
+            }
+            else
+            {
+              // If we've got hidden days then highlight in the mini-calendars those
+              // days in the range that are not hidden.
+              ?>
+              value.setDate(datesInRange(startDate, endDate, true));
+              <?php
+            }
+            ?>
             value.changeMonth(key);
           });
 
@@ -260,7 +356,7 @@ $(document).on('page_ready', function() {
         div.css('margin-top', $('.view_container h2').outerHeight(true) + 'px');
 
         <?php
-        // Once the calendars are formed thern we add the class 'formed' which will
+        // Once the calendars are formed then we add the class 'formed' which will
         // bring into play CSS media queries.    We need to do this because if we
         // form them when the media queries are operational then they won't get
         // formed if the result of the query is 'display: none', which means that if
@@ -279,7 +375,7 @@ $(document).on('page_ready', function() {
   $('.view_container').removeClass('js_hidden');
 
   <?php
-  // Show the datepicker in the banner, which has ben hidden up until now
+  // Show the datepicker in the banner, which has been hidden up until now
   ?>
   $('#form_nav').removeClass('js_hidden');
 });

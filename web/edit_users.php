@@ -102,7 +102,7 @@ function can_view_user($target)
 
   return (!$auth['only_admin_can_see_other_users']  ||
           ($mrbs_user->level >= $min_user_viewing_level) ||
-          (strcasecmp($mrbs_user->username, $target) === 0));
+          (strcasecmp_locale($mrbs_user->username, $target) === 0));
 }
 
 
@@ -111,7 +111,7 @@ function can_edit_user($target)
 {
   $mrbs_user = session()->getCurrentUser();
 
-  return (is_user_admin() || (isset($mrbs_user) && strcasecmp($mrbs_user->username, $target) === 0));
+  return (is_user_admin() || (isset($mrbs_user) && strcasecmp_locale($mrbs_user->username, $target) === 0));
 }
 
 
@@ -209,10 +209,17 @@ function output_row($row)
           break;
         case 'email':
           // we don't want to truncate the email address
-          $escaped_email = htmlspecialchars($col_value);
-          $values[] = "<div class=\"string\">\n" .
-                      "<a href=\"mailto:$escaped_email\">$escaped_email</a>\n" .
-                      "</div>\n";
+          if (isset($col_value) && ($col_value !== ''))
+          {
+            $escaped_email = htmlspecialchars($col_value);
+            $values[] = "<div class=\"string\">\n" .
+                        "<a href=\"mailto:$escaped_email\">$escaped_email</a>\n" .
+                        "</div>\n";
+          }
+          else
+          {
+            $values[] = '';
+          }
           break;
         case 'timestamp':
           // Convert the SQL timestamp into a time value and back into a localised string and
@@ -250,7 +257,7 @@ function output_row($row)
               (($field['nature'] == 'integer') && isset($field['length']) && ($field['length'] <= 2)) )
           {
             // booleans: represent by a checkmark
-            $values[] = (!empty($col_value)) ? "<img src=\"images/check.png\" alt=\"check mark\" width=\"16\" height=\"16\">" : "&nbsp;";
+            $values[] = (!empty($col_value)) ? "&check;" : '';
           }
           elseif (($field['nature'] == 'integer') && isset($field['length']) && ($field['length'] > 2))
           {
@@ -387,12 +394,28 @@ function get_field_custom($custom_field, $params, $disabled=false)
   global $select_options, $datalist_options, $is_mandatory_field, $pattern;
   global $text_input_max;
 
+  // TODO: have a common way of generating custom fields for all tables
+
   // Output a checkbox if it's a boolean or integer <= 2 bytes (which we will
   // assume are intended to be booleans)
   if (($custom_field['nature'] == 'boolean') ||
       (($custom_field['nature'] == 'integer') && isset($custom_field['length']) && ($custom_field['length'] <= 2)) )
   {
     $class = 'FieldInputCheckbox';
+  }
+  // Otherwise check if it's an integer field
+  elseif ((($custom_field['nature'] == 'integer') && ($custom_field['length'] > 2)) ||
+          ($custom_field['nature'] == 'decimal'))
+  {
+    $class = 'FieldInputNumber';
+  }
+  elseif (!empty($select_options[$params['field']]))
+  {
+    $class = 'FieldSelect';
+  }
+  elseif (!empty($datalist_options[$params['field']]))
+  {
+    $class = 'FieldInputDatalist';
   }
   // Output a textarea if it's a character string longer than the limit for a
   // text input
@@ -404,14 +427,6 @@ function get_field_custom($custom_field, $params, $disabled=false)
   {
     $class = 'FieldInputDate';
   }
-  elseif (!empty($select_options[$params['field']]))
-  {
-    $class = 'FieldSelect';
-  }
-  elseif (!empty($datalist_options[$params['field']]))
-  {
-    $class = 'FieldInputDatalist';
-  }
   else
   {
     $class = 'FieldInputText';
@@ -420,7 +435,15 @@ function get_field_custom($custom_field, $params, $disabled=false)
   $full_class = __NAMESPACE__ . "\\Form\\$class";
   $field = new $full_class();
   $field->setLabel($params['label'])
-          ->setControlAttribute('name', $params['name']);
+        ->setControlAttribute('name', $params['name']);
+
+  if ($custom_field['nature'] == 'decimal')
+  {
+    list( , $decimal_places) = explode(',', $custom_field['length']);
+    $step = pow(10, -$decimal_places);
+    $step = number_format($step, $decimal_places);
+    $field->setControlAttribute('step', $step);
+  }
 
   if (!empty($is_mandatory_field[$params['field']]))
   {
@@ -460,6 +483,7 @@ function get_field_custom($custom_field, $params, $disabled=false)
       break;
 
     case 'FieldInputDate':
+    case 'FieldInputNumber':
       $field->setControlAttribute('value', $params['value']);
       break;
 
@@ -949,6 +973,12 @@ if (isset($action) && ($action == "update"))
       }
     }
 
+    // Remove any extra whitespace that may have accidentally been inserted in the display name
+    if ($fieldname == 'display_name')
+    {
+      $values[$fieldname] = preg_replace('/\s+/', ' ', $values[$fieldname]);
+    }
+
     // we will also put the data into a query string which we will use for passing
     // back to this page if we fail validation.   This will enable us to reload the
     // form with the original data so that the user doesn't have to
@@ -1134,6 +1164,7 @@ if (isset($action) && ($action == "update"))
       // pre-process the field value for SQL
       switch ($field['nature'])
       {
+        case 'decimal':
         case 'integer':
           if (!isset($value) || ($value === ''))
           {

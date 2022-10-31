@@ -34,17 +34,26 @@ var sizeColumns = function() {
 var refreshPage = function refreshPage() {
     if (!isHidden() &&
         !$('table.dwm_main').hasClass('resizing') &&
-        !isMeteredConnection())
+        !isMeteredConnection() &&
+        !refreshPage.disabled)
     {
-      var data = {refresh: 1,
-                  view: args.view,
-                  view_all: args.view_all,
-                  page_date: args.pageDate,
-                  area: args.area,
-                  room: args.room};
+      var data = {
+        refresh: 1,
+        view: args.view,
+        view_all: args.view_all,
+        page_date: args.pageDate,
+        area: args.area,
+        room: args.room
+      };
+
       if (args.timetohighlight !== undefined)
       {
         data.timetohighlight = args.timetohighlight;
+      }
+
+      if (args.kiosk !== undefined)
+      {
+        data.kiosk = args.kiosk;
       }
 
       <?php
@@ -75,13 +84,14 @@ var refreshPage = function refreshPage() {
                // (4) trigger a load event so that the resizable bookings are
                // re-created and a new timer started.
                ?>
-               if ((result.length > 0) && !isHidden() && !refreshPage.disabled)
+               if (result && !isHidden() && !refreshPage.disabled)
                {
                  var table = $('table.dwm_main');
                  if (!table.hasClass('resizing') && table.hasClass('refreshable'))
                  {
-                   table.empty();
-                   table.html(result);
+                   var dateHeading = $('.date_heading');
+                   dateHeading.empty().html(result.date_heading);
+                   table.empty().html(result.inner_html);
                    window.clearInterval(intervalId);
                    intervalId = undefined;
                    table.trigger('tableload');
@@ -89,7 +99,7 @@ var refreshPage = function refreshPage() {
 
                }
              },
-           'html'
+           'json'
         );
     }  <?php // if (!isHidden() etc.?>
   };
@@ -205,7 +215,7 @@ var Timeline = {
         return arr;
       }
 
-      <?php // Recursively gets the last element of a multi-dimensional array ?>
+      <?php // Recursively gets the last element of a multidimensional array ?>
       function getLast(arr)
       {
         if (Array.isArray(arr))
@@ -290,12 +300,12 @@ var Timeline = {
       <?php
       // We need the <th> header cells in <thead> because they are useful for working out the
       // dimensions of slots in the table.  We can't rely on the <td> cells in the <tbody> because
-      // they may have rowspans attached to the them.
+      // they may have rowspans attached to them.
       ?>
       headers = table.find('thead tr').first().find('th');
 
       <?php
-      // The time line can either be vertical or horizontal and stretch the full width/height of the
+      // The timeline can either be vertical or horizontal and stretch the full width/height
       // of the calendar or not. For example in the day view with $times_along_top = false the
       // timeline is horizontal and stretches the full width.   And in the week view for a single room
       // with $times_along_top = true the timeline is vertical and doesn't stretch the full height
@@ -306,8 +316,8 @@ var Timeline = {
         <?php // Get the row that contains the current time ?>
         row = table.find('tbody tr').eq(nowSlotIndices[1]);
         <?php
-        // Get the top, left edge and height of the timeline.  The left edge is the left edge of he cell,
-        // adjusted for the border width and then we add on the fraction that we are through the cell.
+        // Get the top, left edge and height of the timeline.  The left edge is the left edge of the cell,
+        // adjusted for the border width, and then we add on the fraction that we are through the cell.
         ?>
         element = headers.not('.first_last').eq(nowSlotIndices[0]);
         borderLeftWidth = parseInt(element.css('border-left-width'), 10);
@@ -327,7 +337,7 @@ var Timeline = {
           top = row.offset().top - table.parent().offset().top;
           <?php
           // Take 1px off the booking height to account for the bottom border of the <a> tag in a
-          // booked cell.  Bit of a hack, but difficult to see how to do it otherwise.
+          // booked cell. A bit of a hack, but difficult to see how to do it otherwise.
           ?>
           height = row.innerHeight() - 1;
         }
@@ -447,20 +457,32 @@ $(document).on('page_ready', function() {
   ?>
   $('table.dwm_main').on('tableload', function() {
 
+      var refreshRate;
+
       sizeColumns();
 
-      <?php
-      if (!empty($refresh_rate))
+      if (args.kiosk)
       {
+        refreshRate = <?php echo $kiosk_refresh_rate ?? 0; ?>;
+      }
+      else
+      {
+        refreshRate = <?php echo $refresh_rate ?? 0; ?>;
+      }
+
+      if (refreshRate !== 0)
+      {
+
+        <?php
         // Set an interval timer to refresh the page, unless there's already one in place
         ?>
         if (typeof intervalId === 'undefined')
         {
-          intervalId = setInterval(refreshPage, <?php echo $refresh_rate * 1000 ?>);
+          intervalId = setInterval(refreshPage, refreshRate * 1000);
         }
-        <?php
       }
 
+      <?php
       // Add an event listener to detect a change in the visibility
       // state.  We can then suspend Ajax refreshing when the page is
       // hidden to save on server, client and network load.
@@ -478,15 +500,19 @@ $(document).on('page_ready', function() {
       }
 
       <?php
-      if ($show_timeline && !$enable_periods)
+      if (!$enable_periods)
       {
-        // Add a timeline showing the current time. Also need to recalculate the timeline if
-        // the window is resized.
+        // If required, add a timeline showing the current time. Also need to recalculate
+        //the timeline if the window is resized.
         ?>
-        Timeline.show();
-        $(window).on('resize', function () {
+        if ((args.kiosk && <?php echo ($show_timeline_kiosk) ? 'true' : 'false'?>) ||
+            (!args.kiosk && <?php echo($show_timeline) ? 'true' : 'false'?>))
+        {
+          Timeline.show();
+          $(window).on('resize', function () {
             Timeline.show();
           });
+        }
         <?php
       }
       ?>

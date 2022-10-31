@@ -19,19 +19,19 @@ $lang_aliases = array
 
 // Map non-standard language codes used by flatpickr onto BCP 47 language tags
 $flatpickr_lang_map = array(
-//   'at'     => 'de-at',
-//   'cat'    => 'ca',
-//   'gr'     => 'el',
-//   'kz'     => 'kk',
-//   'sr-cyr' => 'sr-cyrl',
-  'vi'     => 'vn'
+  'at'     => 'de-at',
+  'cat'    => 'ca',
+  'gr'     => 'el',
+  'kz'     => 'kk',
+  'sr-cyr' => 'sr-cyrl',
+  'vn'     => 'vi'
 );
 
 // Map flatpickr language file names onto flatpickr fp.l10ns properties
 // so that they can be used with flatpickr.localize.
 $flatpickr_property_map = array(
-  'vi' => 'vn',
-//   'zh-tw'  => 'zh_tw'
+  'sr-cyr' => 'sr',
+  'zh-tw'  => 'zh_tw'
 );
 
 // The DataTables language files are for the moment given descriptive names.   I have
@@ -212,7 +212,7 @@ set_vocab($lang);
 
 
 // Determines whether we are using a RTL language
-function using_rtl_lang()
+function using_rtl_lang() : bool
 {
   global $rtl_languages;
 
@@ -730,34 +730,28 @@ function set_vocab($lang)
 }
 
 
-function get_charset()
+function get_charset() : string
 {
   return 'utf-8';
 }
 
 
-function get_mail_charset()
+function get_mail_charset() : string
 {
   return PHPMailer::CHARSET_UTF8;
 }
 
 
-function get_csv_charset()
+function get_csv_charset() : string
 {
   global $csv_charset;
-  if (empty($csv_charset))
-  {
-    return get_charset();
-  }
-  else
-  {
-    return $csv_charset;
-  }
+
+  return (empty($csv_charset)) ? get_charset() : $csv_charset;
 }
 
 
 // Returns the language that MRBS is using, in BCP-47 format
-function get_lang()
+function get_lang() : string
 {
   global $lang;
 
@@ -1142,7 +1136,7 @@ function utf8_strftime(string $format, $time, $locale=null) : string
   // if we can.
   // TODO: This solution just translates strftime formats into the nearest
   // TODO: equivalent IntlDateFormatter patterns.  However it would be better
-  // TODO: to rewrite MRBS so that IntlDateFormatter patterns are used if
+  // TODO: to rewrite MRBS so that IntlDateFormatter patterns are used if possible
   // TODO: as they are more flexible and better suited to reflecting locales.
   if (class_exists('IntlDateFormatter'))
   {
@@ -1227,7 +1221,7 @@ function utf8_substr(string $str, int $start, ?int $length=null)
       $j++;
     }
     $j = 0;
-    $ret = '.';  // Dummy to fool PHP. If we us an empty string it thinks it's an array.
+    $ret = '.';  // Dummy to fool PHP. If we use an empty string it thinks it's an array.
     for ($i = $index;
          isset($str[$i]) && (ord($str[$i]) != 0) && (!isset($end_index) || ($i < $end_index));
          $i++)
@@ -1238,7 +1232,7 @@ function utf8_substr(string $str, int $start, ?int $length=null)
   else
   {
     $j = 0;
-    $ret = '.';  // Dummy to fool PHP. If we us an empty string it thinks it's an array.
+    $ret = '.';  // Dummy to fool PHP. If we use an empty string it thinks it's an array.
     for ($i = $index; isset($str[$i]) && (ord($str[$i]) != 0); $i++)
     {
       $ret[$j++] = $str[$i];
@@ -1472,13 +1466,24 @@ function utf8_strtoupper($str)
 
 
 // Wrapper round mb_strpos()
-function utf8_strpos($haystack, $needle, $offset=0)
+function utf8_strpos(string $haystack, string $needle, int $offset=0)
 {
   if (function_exists('mb_strpos'))
   {
     return mb_strpos($haystack, $needle, $offset);
   }
   return strpos($haystack, $needle, $offset);
+}
+
+
+// Wrapper round mb_stripos()
+function utf8_stripos(string $haystack, string $needle, int $offset=0)
+{
+  if (function_exists('mb_stripos'))
+  {
+    return mb_stripos($haystack, $needle, $offset);
+  }
+  return stripos($haystack, $needle, $offset);
 }
 
 

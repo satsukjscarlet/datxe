@@ -30,7 +30,11 @@ class SessionWordpress extends SessionWithLogin
 
 
   // Can only return a valid username.  If the username and password are not valid it will ask for new ones.
-  protected function getValidUser(?string $username, ?string $password) : string
+  protected function getValidUser(
+    #[\SensitiveParameter]
+    ?string $username,
+    #[\SensitiveParameter]
+    ?string $password) : string
   {
     global $errors; // $errors is a WordPress global
 
@@ -44,7 +48,7 @@ class SessionWordpress extends SessionWithLogin
     {
       $errors = $wp_user;
       $error_message = apply_filters('login_errors', $wp_user->get_error_message());
-      // The Wordpress error message contains HTML so don't escape it.
+      // The WordPress error message contains HTML so don't escape it.
       $this->authGet($this->form['target_url'], $this->form['returl'], $error_message, $raw=true);
       exit(); // unnecessary because authGet() exits, but just included for clarity
     }

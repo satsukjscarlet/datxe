@@ -26,7 +26,11 @@ class AuthJoomla extends Auth
    *   false    - The pair are invalid or do not exist
    *   true     - The user has been validated and logged in
    */
-  public function validateUser(?string $user, ?string $pass)
+  public function validateUser(
+    #[\SensitiveParameter]
+    ?string $user,
+    #[\SensitiveParameter]
+    ?string $pass)
   {
     $mainframe = JFactory::getApplication('site');
 
@@ -35,7 +39,7 @@ class AuthJoomla extends Auth
   }
 
 
-  public function getUser($username=null) : ?User
+  protected function getUserFresh(?string $username=null) : ?User
   {
     if ($username === '')
     {
@@ -60,6 +64,14 @@ class AuthJoomla extends Auth
     $user->level = self::getUserLevel($joomla_user);
 
     return $user;
+  }
+
+
+  // TODO: sort out where getCurrentUser belongs.  We have it in both
+  // TODO: Auth and Session for Joomla!
+  public function getCurrentUser() : ?User
+  {
+    return $this->getUserFresh();
   }
 
 

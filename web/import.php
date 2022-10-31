@@ -251,6 +251,7 @@ function process_event(array $vevent)
   global $morningstarts, $morningstarts_minutes, $resolution;
   global $booking_types;
   global $ignore_location, $add_location;
+  global $default_type;
 
   // We are going to cache the settings ($resolution etc.) for the rooms
   // in order to avoid lots of database lookups
@@ -372,12 +373,15 @@ function process_event(array $vevent)
         break;
 
       case 'X-MRBS-TYPE':
-        foreach($booking_types as $type)
+        if (!empty($booking_types))
         {
-          if ($details['value'] == get_type_vocab($type))
+          foreach ($booking_types as $type)
           {
-            $booking['type'] = $type;
-            break;
+            if ($details['value'] == get_type_vocab($type))
+            {
+              $booking['type'] = $type;
+              break;
+            }
           }
         }
         break;
@@ -827,7 +831,7 @@ function get_fieldset_ignore_location_settings() : ElementFieldset
 
 function get_fieldset_location_settings() : ElementFieldset
 {
-  global $default_room;
+  global $import_default_room;
   global $ignore_location;
 
   $fieldset = new ElementFieldset();
@@ -860,7 +864,7 @@ function get_fieldset_location_settings() : ElementFieldset
       $field->setLabel(get_vocab('default_room'))
             ->setLabelAttribute('title', get_vocab('default_room_note'))
             ->setControlAttribute('name', 'import_default_room')
-            ->addSelectOptions($options, $default_room, true);
+            ->addSelectOptions($options, $import_default_room, true);
 
       $fieldset->addElement($field);
     }
@@ -894,17 +898,14 @@ function get_fieldset_other_settings() : ElementFieldset
 
   // Default type
   $field = new FieldSelect();
-
-  $options = array();
-  foreach ($booking_types as $type)
+  $options = get_type_options(true);
+  if (count($options) > 1)
   {
-    $options[$type] = get_type_vocab($type);
+    $field->setLabel(get_vocab('default_type'))
+          ->setControlAttribute('name', 'import_default_type')
+          ->addSelectOptions($options, $import_default_type, true);
+    $fieldset->addElement($field);
   }
-
-  $field->setLabel(get_vocab('default_type'))
-        ->setControlAttribute('name', 'import_default_type')
-        ->addSelectOptions($options, $import_default_type, true);
-  $fieldset->addElement($field);
 
   // Import past bookings
   // Add a hidden element so that if the checkbox is not checked we

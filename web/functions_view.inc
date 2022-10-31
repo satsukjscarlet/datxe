@@ -4,25 +4,33 @@ namespace MRBS;
 // Returns a string containing a single line of data details, or if $as_html is set
 // a table row of details.   The first column is the $label and the second column
 // the $value.   $class is an optional class name which can be applied to the
-// second column.
-//Trả về một chuỗi chứa một dòng chi tiết dữ liệu hoặc nếu $ as_html được đặt một hàng chi tiết trong bảng.
-//Cột đầu tiên là nhãn $ và cột thứ hai là giá trị $. $ class là một tên lớp tùy chọn có thể được áp dụng cho cột thứ hai
-function create_details_row($label, $value, $as_html=false, $class='')
+// second column.  If $email is set then the $value will be turned into a mailto: link.
+function create_details_row(string $label, string $value, bool $as_html=false, string $class='', ?string $email=null) : string
 {
   $result = '';
   if ($as_html)
   {
+    $escaped_value = mrbs_nl2br(htmlspecialchars($value));
     $result .= "<tr>\n";
     $result .= "<td>$label</td>\n";
-    $result .= "<td" .
-               ((!empty($class)) ? " class=\"$class\"" : "") .
-               ">" . mrbs_nl2br(htmlspecialchars($value)) . "</td>\n";
+    $result .= "<td" . ((!empty($class)) ? " class=\"$class\"" : '') . '>';
+    if (isset($email))
+    {
+      // Obfuscate the email address
+      $html = '<a href="mailto:' . rawurlencode($email) . '">' . $escaped_value . '</a>';
+      $result .= '<span class="contact" data-html="' . base64_encode($html) . '">';
+    }
+    $result .= $escaped_value;
+    if (isset($email))
+    {
+      $result .= '</span>';
+    }
+    $result .= "</td>\n";
     $result .= "</tr>\n";
   }
   else
   {
     // Some of the vocab strings contain &nbsp;
-    // Một số chuỗi vocab chứa &nbsp
     $result .= str_replace('&nbsp;', ' ', $label) . ": $value\n";
   }
   return $result;
@@ -36,20 +44,19 @@ function create_details_row($label, $value, $as_html=false, $class='')
 //                              note that $data must already have had values substituted
 //                              for private fields
 //    $room_disabled  boolean   if true then a note will be added that the room is disabled
-function create_details_body($data, $as_html=false, $keep_private=false, $room_disabled=false)
+function create_details_body(array $data, bool $as_html=false, bool $keep_private=false, bool $room_disabled=false) : string
 {
   global $enable_periods, $confirmation_enabled, $approval_enabled;
   global $is_private_field, $standard_fields;
   global $strftime_format;
   global $select_options, $booking_types;
   global $edit_entry_field_order;
+  global $auth;
 
   // Get the duration if we haven't got it already
-  //Nhận thời lượng nếu chúng tôi chưa có
   if (!isset($data['duration']))
   {
     // We will translate the units later
-    //Chúng tôi sẽ dịch các đơn vị sau
     $d = get_duration($data['start_time'], $data['end_time'], $enable_periods, $data['area_id'], false);
     $data['duration'] = $d['duration'];
     $data['dur_units'] = $d['dur_units'];
@@ -93,7 +100,31 @@ function create_details_body($data, $as_html=false, $keep_private=false, $room_d
 
       case 'create_by':
       case 'modified_by':
-        $data[$key] = $hide_this_field ? $private_text : get_display_name($data[$key]);
+        if ($hide_this_field)
+        {
+          $data[$key] = $private_text;
+        }
+        else
+        {
+          $user = auth()->getUser($data[$key]);
+          $data[$key] = (isset($user)) ? $user->display_name : '';
+        }
+        // Add in the email address if there is one and we are allowed to
+        if (!isset($user) ||
+            ($user->email === '') ||
+            // The field must not be private
+            $hide_this_field ||
+            // The user must be logged in, so that we don't expose email addresses to the public
+            (null === session()->getCurrentUser()) ||
+            // MRBS must be configured to allow ordinary users to see others' details
+            ($auth['only_admin_can_see_other_users'] && !is_admin()))
+        {
+          $email[$key] = null;
+        }
+        else
+        {
+          $email[$key] = $user->email;
+        }
         break;
 
       default:
@@ -229,13 +260,13 @@ function create_details_body($data, $as_html=false, $keep_private=false, $room_d
       case 'create_by':
         // Created by
         $class = ($keep_private && !empty($is_private_field['entry.create_by'])) ? "private" : "";
-        $tbody .= create_details_row(get_vocab("createdby"), $data['create_by'], $as_html, $class);
+        $tbody .= create_details_row(get_vocab("createdby"), $data['create_by'], $as_html, $class, $email[$key]);
         break;
 
       case 'modified_by':
         // Modified by
         $class = ($keep_private && !empty($is_private_field['entry.modified_by'])) ? "private" : "";
-        $tbody .= create_details_row(get_vocab("modifiedby"), $data['modified_by'], $as_html, $class);
+        $tbody .= create_details_row(get_vocab("modifiedby"), $data['modified_by'], $as_html, $class, $email[$key]);
         break;
 
       case 'timestamp':
@@ -317,24 +348,7 @@ function create_details_body($data, $as_html=false, $keep_private=false, $room_d
         $tbody .= create_details_row(get_vocab("rep_rep_day"), get_rep_day_list($data['rep_opt']), $as_html);
         break;
       case REP_MONTHLY:
-        if (isset($data['month_absolute']))
-        {
-          $value = $data['month_absolute'];
-        }
-        elseif (isset($data['month_relative']))
-        {
-          // Note: this does not internationalise very well and could do with revisiting.
-          // It follows the select box order in edit_entry, which is the more difficult one
-          // to sort out.  It assumes all languages have the same order as English
-          // eg "the second Wednesday" which is probably not true.
-          list($ord, $dow) = byday_split($data['month_relative']);
-          $value = get_vocab("ord_" . $ord) . " " . day_name(RFC_5545_day_to_ord($dow));
-        }
-        else
-        {
-          trigger_error("Unknown monthly repeat type, E_USER_NOTICE");
-        }
-        $tbody .= create_details_row(get_vocab("repeat_on"), $value, $as_html);
+        $tbody .= create_details_row(get_vocab("repeat_on"), get_monthly_repeat_day($data), $as_html);
         break;
       default:
         break;

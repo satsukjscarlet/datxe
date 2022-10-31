@@ -2,6 +2,9 @@
 namespace MRBS\Session;
 
 use MRBS\User;
+use function MRBS\auth;
+use function MRBS\fatal_error;
+use function MRBS\get_cookie_path;
 
 
 // Manage sessions via cookies stored in the client browser
@@ -16,13 +19,19 @@ class SessionCookie extends SessionWithLogin
   {
     parent::__construct();
 
-    self::$cookie_path = \MRBS\get_cookie_path();
+    self::$cookie_path = get_cookie_path();
 
     // Delete old-style cookies
     if (!empty($_COOKIE) && isset($_COOKIE["UserName"]))
     {
       setcookie('UserName', '', time()-42000, self::$cookie_path);
     }
+  }
+
+
+  public function init() : void
+  {
+    // The cookie session scheme doesn't use PHP sessions
   }
 
 
@@ -60,7 +69,7 @@ class SessionCookie extends SessionWithLogin
       $expiry_time = time() + $auth['session_cookie']['session_expire_time'];
     }
 
-    $user = \MRBS\auth()->getUser($username);
+    $user = auth()->getUser($username);
 
     self::setCookie('SessionToken',
                     $auth['session_cookie']['hash_algorithm'],
@@ -90,7 +99,7 @@ class SessionCookie extends SessionWithLogin
 
     if ($auth['session_cookie']['include_ip'])
     {
-      $data['ip'] = isset($server['REMOTE_ADDR']) ? $server['REMOTE_ADDR'] : null;
+      $data['ip'] = $server['REMOTE_ADDR'] ?? null;
     }
 
     $json_data = json_encode($data);
@@ -98,7 +107,7 @@ class SessionCookie extends SessionWithLogin
     $hash = self::getHash($hash_algorithm, $json_data, $secret);
 
     setcookie($name,
-              "${hash}_" . base64_encode($json_data),
+              "{$hash}_" . base64_encode($json_data),
               $expiry,
               self::$cookie_path);
   }
@@ -179,9 +188,9 @@ class SessionCookie extends SessionWithLogin
   {
     if (!function_exists('hash_hmac'))
     {
-      \MRBS\fatal_error("It appears that your PHP has the hash functions " .
-                        "disabled, which are required for the 'cookie' " .
-                        "session scheme.");
+      fatal_error("It appears that your PHP has the hash functions " .
+                  "disabled, which are required for the 'cookie' " .
+                  "session scheme.");
     }
 
     return hash_hmac($algo, $data, $key);

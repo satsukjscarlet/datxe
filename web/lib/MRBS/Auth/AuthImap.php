@@ -30,7 +30,11 @@ class AuthImap extends Auth
    *   false    - The pair are invalid or do not exist
    *   string   - The validated username
    */
-  public function validateUser(?string $user, ?string $pass)
+  public function validateUser(
+    #[\SensitiveParameter]
+    ?string $user,
+    #[\SensitiveParameter]
+    ?string $pass)
   {
     global $imap_host, $imap_port;
 
@@ -114,6 +118,13 @@ class AuthImap extends Auth
   public function canValidateByEmail() : bool
   {
     return true;
+  }
+
+
+  // Checks whether validation of a user by username is possible and allowed.
+  public function canValidateByUsername() : bool
+  {
+    return false;
   }
 
 
