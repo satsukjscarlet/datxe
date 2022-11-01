@@ -24,13 +24,14 @@ $flatpickr_lang_map = array(
   'gr'     => 'el',
   'kz'     => 'kk',
   'sr-cyr' => 'sr-cyrl',
-  'vn'     => 'vi'
+  'vi'     => 'vn'
 );
 
 // Map flatpickr language file names onto flatpickr fp.l10ns properties
 // so that they can be used with flatpickr.localize.
 $flatpickr_property_map = array(
   'sr-cyr' => 'sr',
+  'vi' => 'vn',
   'zh-tw'  => 'zh_tw'
 );
 
