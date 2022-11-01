@@ -307,12 +307,12 @@ function get_field_start_time($value, $disabled=false)
                                               $current_s,
                                               false,
                                               $disabled,
-                                              true))
-        ->addControlElement(get_all_day($areas[$area_id],
-                                        'all_day',
-                                        'all_day',
-                                        false,
-                                        $disabled));
+                                              true));
+        // ->addControlElement(get_all_day($areas[$area_id],
+        //                                 'all_day',
+        //                                 'all_day',
+        //                                 false,
+        //                                 $disabled));
 
   // Generate the templates for each area
   foreach ($areas as $a)
@@ -323,12 +323,12 @@ function get_field_start_time($value, $disabled=false)
                                                 $current_s,
                                                 true,
                                                 true,
-                                                true))
-          ->addControlElement(get_all_day($a,
-                                          'all_day' . $a['id'],
-                                          'all_day',
-                                          true,
-                                          true));
+                                                true));
+          // ->addControlElement(get_all_day($a,
+          //                                 'all_day' . $a['id'],
+          //                                 'all_day',
+          //                                 true,
+          //                                 true));
   }
 
   return $field;
@@ -1817,10 +1817,10 @@ $form->addElement(get_fieldset_registration());
 // or else if it's an existing booking and it's a series.  (It's not particularly obvious but
 // if edit_type is "series" then it means that either you're editing an existing
 // series or else you're making a new booking.  This should be tidied up sometime!)
-if (($edit_type == "series") && $repeats_allowed)
-{
-  $form->addElement(get_fieldset_repeat());
-}
+// if (($edit_type == "series") && $repeats_allowed)
+// {
+//   $form->addElement(get_fieldset_repeat());
+// }
 
 // Checkbox for no email
 if (need_to_send_mail() &&
