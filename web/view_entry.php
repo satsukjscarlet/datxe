@@ -384,12 +384,12 @@ function generateApproveButtons($id, $series)
   echo "<td>\n";
 
   // Approve
-  $params = array('action' => multisite("approve_entry_handler.php?$query_string"),
-                  'value'  => get_vocab('approve'),
-                  'inputs' => array('action' => 'approve',
-                                    'returl' => $returl)
-                 );
-  generate_button($params);
+  // $params = array('action' => multisite("approve_entry_handler.php?$query_string"),
+  //                 'value'  => get_vocab('approve'),
+  //                 'inputs' => array('action' => 'approve',
+  //                                   'returl' => $returl)
+  //                );
+  // generate_button($params);
 
   // Reject
   $params = array('action' => multisite("$this_page?$query_string"),

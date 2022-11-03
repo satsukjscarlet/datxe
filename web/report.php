@@ -606,10 +606,10 @@ function report_header()
         }
         break;
       case 'allow_registration':
-        if ($registration_somewhere)
-        {
+        // if ($registration_somewhere)
+        // {
           $values[] = get_vocab("registered");
-        }
+        // }
         break;
       case 'create_by':
         $values[] = get_vocab("createdby");
