@@ -35,10 +35,9 @@ function generate_registrant_table($row, $previous_page=null)
     echo '<tr>';
     echo '<td>';
     // A registration can be cancelled by the registrant or by
-    // the person who registered them or by the booking owner
+    // the person who registered them or by a booking admin
     if (getWritable($registrant['username'], $row['room_id']) ||
-        getWritable($registrant['create_by'], $row['room_id']) ||
-        getWritable($row['create_by'], $row['room_id']))
+        getWritable($registrant['create_by'], $row['room_id']))
     {
       generate_cancel_registration_button(
         $row,
@@ -49,17 +48,20 @@ function generate_registrant_table($row, $previous_page=null)
     }
     echo '</td>';
     // Registrant
-    $display_name = auth()->getDisplayName($registrant['username']);
+    $registrant_user = auth()->getUser($registrant['username']);
+    $display_name = (isset($registrant_user)) ? $registrant_user->display_name : $registrant['username'];
     $sortname = get_sortable_name($display_name);
     echo '<td data-order="' . htmlspecialchars($sortname) . '">' . htmlspecialchars($display_name) . '</td>';
     // Registered by - only show if it's someone other than the registrant
-    if ($registrant['create_by'] === $registrant['username'])
+    $registrant_creator = auth()->getUser($registrant['create_by']);
+    if (isset($registrant_creator) && isset($registrant_user) &&
+        ($registrant_creator->username === $registrant_user->username))
     {
       $display_name = '';
     }
     else
     {
-      $display_name = auth()->getDisplayName($registrant['create_by']);
+      $display_name = (isset($registrant_creator)) ? $registrant_creator->display_name : $registrant['create_by'];
     }
     $sortname = get_sortable_name($display_name);
     echo '<td data-order="' . htmlspecialchars($sortname) . '">' . htmlspecialchars($display_name) . '</td>';
@@ -75,7 +77,7 @@ function generate_registrant_table($row, $previous_page=null)
 }
 
 
-function get_returl(?string $previous_page=null) : string
+function get_returl($previous_page=null)
 {
   global $server;
 
@@ -86,7 +88,7 @@ function get_returl(?string $previous_page=null) : string
     // Add the previous_page (ie the one we were on before view_entry) to the query string
     // so that it is preserved.
     $returl = this_page();
-    $query_string = $server['QUERY_STRING'] ?? '';
+    $query_string = isset($server['QUERY_STRING']) ? $server['QUERY_STRING'] : '';
     parse_str($query_string, $query_string_parts);
     if (isset($previous_page))
     {
@@ -104,10 +106,8 @@ function get_returl(?string $previous_page=null) : string
 
 function generate_cancel_registration_button(array $row, array $registrant, $label_text, $previous_page=null, $as_field=false)
 {
-  global $area, $room;
-
   // Check that it is not too late for ordinary users to cancel
-  if (!getWritable($row['create_by'], $row['room_id']) && entry_registration_cancellation_has_closed($row))
+  if (!is_book_admin($row['room_id']) && entry_registration_cancellation_has_closed($row))
   {
     return;
   }
@@ -125,14 +125,13 @@ function generate_cancel_registration_button(array $row, array $registrant, $lab
   $form->addHiddenInputs(array(
     'action' => 'cancel',
     'registration_id' => $registrant['id'],
-    'returl' => get_returl($previous_page),
-    'area' => $area,
-    'room' => $room
+    'returl' => get_returl($previous_page)
   ));
 
   // Submit button
   $button = new ElementInputSubmit();
-  $display_name = auth()->getDisplayName($registrant['username']);
+  $registrant_user = auth()->getUser($registrant['username']);
+  $display_name = (isset($registrant_user)) ? $registrant_user->display_name : $registrant['username'];
   $message = get_vocab("confirm_del_registrant", $display_name);
   $button->setAttributes(array(
       'value' => $label_text,
@@ -158,10 +157,8 @@ function generate_cancel_registration_button(array $row, array $registrant, $lab
 
 function generate_register_button($row, $previous_page=null)
 {
-  global $area, $room;
-
-  // Check that the user is an admin or else that the entry is open for registration
-  if (!getWritable($row['create_by'], $row['room_id']) && !entry_registration_is_open($row))
+  // Check that the user is an an admin or else that the entry is open for registration
+  if (!is_book_admin($row['room_id']) && !entry_registration_is_open($row))
   {
     return;
   }
@@ -178,9 +175,7 @@ function generate_register_button($row, $previous_page=null)
   $form->addHiddenInputs(array(
       'action' => 'register',
       'event_id' => $row['id'],
-      'returl' => get_returl($previous_page),
-      'area' => $area,
-      'room' => $room
+      'returl' => get_returl($previous_page)
     ));
 
   if (!$can_register_others)
@@ -283,7 +278,7 @@ function generate_event_registration($row, $previous_page=null)
     echo '<p>' . htmlspecialchars(get_vocab('already_registered')) . "</p>\n";
     foreach ($row['registrants'] as $registrant)
     {
-      if (strcasecmp_locale($mrbs_user->username, $registrant['username']) === 0)
+      if (strcasecmp($mrbs_user->username, $registrant['username']) === 0)
       {
         $this_registrant = $registrant;
         break;
@@ -389,12 +384,12 @@ function generateApproveButtons($id, $series)
   echo "<td>\n";
 
   // Approve
-  // $params = array('action' => multisite("approve_entry_handler.php?$query_string"),
-  //                 'value'  => get_vocab('approve'),
-  //                 'inputs' => array('action' => 'approve',
-  //                                   'returl' => $returl)
-  //                );
-  // generate_button($params);
+  $params = array('action' => multisite("approve_entry_handler.php?$query_string"),
+                  'value'  => get_vocab('approve'),
+                  'inputs' => array('action' => 'approve',
+                                    'returl' => $returl)
+                 );
+  generate_button($params);
 
   // Reject
   $params = array('action' => multisite("$this_page?$query_string"),
@@ -426,7 +421,7 @@ function generateOwnerButtons($id, $series)
   // approval AND sufficient time has passed since the last reminder
   // AND we want reminders in the first place
   if (($reminders_enabled) &&
-      (strcasecmp_locale($mrbs_username, $create_by) === 0) &&
+      (strcasecmp($mrbs_username, $create_by) === 0) &&
       ($awaiting_approval) &&
       (working_time_diff(time(), $last_reminded) >= $reminder_interval))
   {
@@ -504,32 +499,30 @@ function generateTextArea($form_action, $id, $series, $action_type, $returl, $su
 // If $series is TRUE, it means that the $id is the id of an
 // entry in the repeat table.  Otherwise it's from the entry table.
 $id = get_form_var('id', 'int');
-$series = get_form_var('series', 'bool');
+$series = get_form_var('series', 'int');
 $action = get_form_var('action', 'string');
 $returl = get_form_var('returl', 'string');
 $error = get_form_var('error', 'string');
 $previous_page = get_form_var('previous_page', 'string');
 
-$referrer = session()->getReferrer();
-
-if (!isset($previous_page) && isset($referrer))
+if (!isset($previous_page) && isset($server['HTTP_REFERER']))
 {
-  $previous_page = $referrer;
+  $previous_page = $server['HTTP_REFERER'];
 }
 
 // Need to tell all the links where to go back to after an edit or delete
 if (!isset($returl))
 {
-  // We need $referrer to contain an actual page, and not be a directory, ie end in '/'
-  if (isset($referrer) && (substr($referrer, -1) != '/'))
+  // We need $_SERVER['HTTP_REFERER'] to contain an actual page, and not be a directory, ie end in '/'
+  if (isset($server['HTTP_REFERER']) && (substr($server['HTTP_REFERER'], -1) != '/'))
   {
-    $parsed_url = parse_url($referrer);
+    $parsed_url = parse_url($server['HTTP_REFERER']);
     if (isset($parsed_url['path']))
     {
       $returl = basename($parsed_url['path']);
     }
   }
-  // If we still haven't got a referrer (eg if we've come here from an email) then construct
+  // If we still haven't got a referer (eg if we've come here from an email) then construct
   // a sensible place to go to afterwards
   if (!isset($returl))
   {
@@ -707,7 +700,7 @@ $context = array(
     'month'     => $month,
     'day'       => $day,
     'area'      => $area,
-    'room'      => $room ?? null
+    'room'      => isset($room) ? $room : null
   );
 
 print_header($context);
@@ -808,7 +801,7 @@ if ($approval_enabled && !$room_disabled && $awaiting_approval)
       }
     }
     // Buttons for the owner of this booking
-    elseif (strcasecmp_locale($mrbs_username, $create_by) === 0)
+    elseif (strcasecmp($mrbs_username, $create_by) === 0)
     {
       generateOwnerButtons($id, $series);
     }
@@ -899,7 +892,7 @@ if (!$room_disabled)
     // For the delete buttons, either the button is disabled and we show the reason why, or else
     // we add a click event to confirm the deletion
     unset($button_attributes['onclick']);
-
+    
     if (!$series)
     {
       echo "<div>\n";

@@ -91,17 +91,13 @@ class AuthCas extends Auth
    *   false    - The pair are invalid or do not exist
    *   string   - The validated username
    */
-  public function validateUser(
-    #[\SensitiveParameter]
-    ?string $user,
-    #[\SensitiveParameter]
-    ?string $pass)
+  public function validateUser(?string $user, ?string $pass)
   {
     return (phpCAS::isAuthenticated()) ? $user : false;
   }
 
 
-  protected function getUserFresh(string $username) : ?User
+  public function getUser(string $username) : ?User
   {
     $user = new User($username);
     $user->level = $this->getLevel($username);

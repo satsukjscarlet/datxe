@@ -39,7 +39,7 @@ use MRBS\User;
  */
 
 
-class SessionOmni extends Session
+class SessionOmni extends SessionWithoutLogin
 {
 
   // No need to prompt for a name - this is done by the server.

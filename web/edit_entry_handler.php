@@ -1,5 +1,4 @@
 <?php
-declare(strict_types=1);
 namespace MRBS;
 
 require 'defaultincludes.inc';
@@ -9,38 +8,6 @@ require_once 'functions_mail.inc';
 
 use MRBS\Form\Form;
 use MRBS\Form\ElementInputSubmit;
-
-
-function invalid_date(string $message, bool $is_ajax) : void
-{
-  if ($is_ajax)
-  {
-    http_response_code(500);
-    // Trigger the error after we have sent the 500 code so that if $debug is set the JavaScript
-    // does not interpret the output as success.
-    trigger_error($message, E_USER_WARNING);
-    exit;
-  }
-
-  throw new Exception($message);
-}
-
-
-// Check that a room id is set and not the empty string and convert it to an int.
-function sanitize_room_id($id) : int
-{
-  if (!isset($id))
-  {
-    throw new Exception("Room id not set");
-  }
-
-  if ($id === '')
-  {
-    throw new Exception("Room id is ''");
-  }
-
-  return intval($id);
-}
 
 
 function invalid_booking(string $message) : void
@@ -54,7 +21,7 @@ function invalid_booking(string $message) : void
     'month'     => $month,
     'day'       => $day,
     'area'      => $area,
-    'room'      => $room ?? null
+    'room'      => isset($room) ? $room : null
   );
 
   print_header($context);
@@ -162,35 +129,23 @@ foreach($form_vars as $var => $var_type)
   }
 }
 
-// Sanitize the room ids
-$rooms = array_map(__NAMESPACE__ . '\sanitize_room_id', $rooms);
-
 // Convert the registration opens and closes times into seconds
 if (isset($registration_opens_value) && isset($registration_opens_units))
 {
-  $registration_opens = $registration_opens_value;
-  fromTimeString($registration_opens, $registration_opens_units);
-  $registration_opens = constrain_int($registration_opens, 4);
+  fromTimeString($registration_opens_value, $registration_opens_units);
+  $registration_opens = constrain_int($registration_opens_value, 4);
 }
 
 if (isset($registration_closes_value) && isset($registration_closes_units))
 {
-  $registration_closes = $registration_closes_value;
-  fromTimeString($registration_closes, $registration_closes_units);
-  $registration_closes = constrain_int($registration_closes, 4);
+  fromTimeString($registration_closes_value, $registration_closes_units);
+  $registration_closes = constrain_int($registration_closes_value, 4);
 }
 
-// Convert the form booleans
-$skip = (bool) $skip;
-
-if (!$is_ajax)
-{
-  // Convert the database booleans (the custom field booleans are done later)
-  foreach (['allow_registration', 'registrant_limit_enabled', 'registration_opens_enabled', 'registration_closes_enabled'] as $var)
-  {
-    $$var = ($$var) ? 1 : 0;
-  }
-}
+// Convert the booleans (the custom field booleans are done later)
+$registrant_limit_enabled = ($registrant_limit_enabled) ? 1 : 0;
+$registration_opens_enabled = ($registration_opens_enabled) ? 1 : 0;
+$registration_closes_enabled = ($registration_closes_enabled) ? 1 : 0;
 
 // If they're not an admin and multi-day bookings are not allowed, then
 // set the end date to the start date
@@ -199,18 +154,13 @@ if (!is_book_admin($rooms) && $auth['only_admin_can_book_multiday'])
   $end_date = $start_date;
 }
 
-if (false === ($start_date_split = split_iso_date($start_date)))
-{
-  invalid_date("Invalid start_date '$start_date'", $is_ajax);
-}
-list($start_year, $start_month, $start_day) = $start_date_split;
+list($start_year, $start_month, $start_day) = split_iso_date($start_date);
+list($end_year, $end_month, $end_day) = split_iso_date($end_date);
 
-if (false === ($end_date_split = split_iso_date($end_date)))
+if (isset($rep_end_date))
 {
-  invalid_date("Invalid end_date '$end_date'", $is_ajax);
+  list($rep_end_year, $rep_end_month, $rep_end_day) = split_iso_date($rep_end_date);
 }
-list($end_year, $end_month, $end_day) = $end_date_split;
-
 
 // BACK:  we didn't really want to be here - send them to the returl
 if (!empty($back_button))
@@ -281,6 +231,22 @@ foreach($fields as $field)
 
 // Form validation checks.   Normally checked for client side.
 
+if (isset($id))
+{
+  $old_booking = get_booking_info($id, false);
+
+  // Get the old values of registration_opens, registration_closes and registrant_limit
+  // if they're not set, otherwise writing null to the database will cause the column
+  // defaults to be used.
+  foreach (['registration_opens', 'registration_closes', 'registrant_limit'] as $var)
+  {
+    if (!isset($$var))
+    {
+      $$var = $old_booking[$var];
+    }
+  }
+}
+
 // Validate the create_by variable, checking that it's the current user, unless the
 // user is an admin and the booking is being edited or it's a new booking and we allow
 // admins to make bookings on behalf of others.
@@ -289,11 +255,6 @@ foreach($fields as $field)
 // $create_by isn't set yet, but a getWritable check will be done later,
 if (!$is_ajax)
 {
-  if (!isset($create_by))
-  {
-    // Shouldn't happen, unless something's gone wrong with the form or the POST request.
-    throw new Exception('$create_by not set');
-  }
   if (!is_book_admin($rooms) || (!isset($id) && $auth['admin_can_only_book_for_self']))
   {
     if ($create_by !== $mrbs_username)
@@ -410,8 +371,6 @@ if ($no_mail)
 // (2) we always get passed start_seconds and end_seconds in the Ajax data
 if ($is_ajax && $commit)
 {
-  $old_booking = get_booking_info($id, false);
-
   foreach ($form_vars as $var => $var_type)
   {
     if (!isset($$var) || (($var_type == 'array') && empty($$var)))
@@ -435,9 +394,9 @@ if ($is_ajax && $commit)
         // from the current time, ie the days on which DST starts and ends.
         case 'start_seconds';
           $date = getdate($old_booking['start_time']);
-          $start_year = (int) $date['year'];
-          $start_month = (int) $date['mon'];
-          $start_day = (int) $date['mday'];
+          $start_year = $date['year'];
+          $start_month = $date['mon'];
+          $start_day = $date['mday'];
           $start_daystart = mktime(0, 0, 0, $start_month, $start_day, $start_year);
           $old_start = $old_booking['start_time'];
           $start_seconds = $old_start - $start_daystart;
@@ -445,9 +404,9 @@ if ($is_ajax && $commit)
           break;
         case 'end_seconds';
           $date = getdate($old_booking['end_time']);
-          $end_year = (int) $date['year'];
-          $end_month = (int) $date['mon'];
-          $end_day = (int) $date['mday'];
+          $end_year = $date['year'];
+          $end_month = $date['mon'];
+          $end_day = $date['mday'];
           $end_daystart = mktime(0, 0, 0, $end_month, $end_day, $end_year);
           $old_end = $old_booking['end_time'];
           $end_seconds = $old_end - $end_daystart;
@@ -513,9 +472,9 @@ if (day_past_midnight())
   {
     $start_seconds += SECONDS_PER_DAY;
     $day_before = getdate(mktime(0, 0, 0, $start_month, $start_day-1, $start_year));
-    $start_day = (int) $day_before['mday'];
-    $start_month = (int) $day_before['mon'];
-    $start_year = (int) $day_before['year'];
+    $start_day = $day_before['mday'];
+    $start_month = $day_before['mon'];
+    $start_year = $day_before['year'];
   }
 }
 
@@ -548,7 +507,7 @@ if (isset($id))
 // Must have write access to at least one of the rooms
 if (!getWritable($create_by, $target_rooms, false))
 {
-  showAccessDenied($view, $view_all, $year, $month, $day, $area, $room ?? null);
+  showAccessDenied($view, $view_all, $year, $month, $day, $area, isset($room) ? $room : null);
   exit;
 }
 
@@ -584,15 +543,14 @@ if ($end_time == $start_time)
   $end_time += $resolution;
 }
 
-if (isset($rep_type) && ($rep_type != REP_NONE) && isset($rep_end_date))
+if (isset($rep_type) && ($rep_type != REP_NONE) &&
+    isset($rep_end_month) && isset($rep_end_day) && isset($rep_end_year))
 {
   // Get the repeat entry settings
-  if (false === ($date = DateTime::createFromFormat('Y-m-d', $rep_end_date)))
-  {
-    throw new Exception("Invalid rep_end_date '$rep_end_date'");
-  }
-  $date->setTime(intval($start_seconds/SECONDS_PER_HOUR), intval(($start_seconds%SECONDS_PER_HOUR)/60));
-  $rep_end_time = $date->getTimestamp();
+  $rep_end_time = mktime(intval($start_seconds/SECONDS_PER_HOUR),
+                         intval(($start_seconds%SECONDS_PER_HOUR)/60),
+                         0,
+                         $rep_end_month, $rep_end_day, $rep_end_year);
 }
 else
 {
@@ -659,9 +617,9 @@ if (isset($rep_type) && ($rep_type != REP_NONE))
     $duration -= cross_dst($start_time, $end_time);
     $start_time = $reps[0];
     $end_time = $start_time + $duration;
-    $start_day = (int) date('j', $start_time);
-    $start_month = (int) date('n', $start_time);
-    $start_year = (int) date('Y', $start_time);
+    $start_day = date('j', $start_time);
+    $start_month = date('n', $start_time);
+    $start_year = date('Y', $start_time);
   }
 }
 
@@ -693,8 +651,7 @@ if (isset($returl) && ($returl !== ''))
     {
       parse_str($returl['query'], $query_vars);
     }
-    $view = $query_vars['view'] ?? $default_view;
-    $view_all = $query_vars['view_all'] ?? (($default_view_all) ? 1 : 0);
+    $view = (isset($query_vars['view'])) ? $query_vars['view'] : $default_view;
     $returl = explode('/', $returl['path']);
     $returl = end($returl);
   }
@@ -724,13 +681,12 @@ if (!in_array($room, $rooms))
 $area = mrbsGetRoomArea($room);
 
 // Now construct the new query string
-$vars = array('view'      => $view ?? $default_view,
-              'view_all'  => $view_all ?? $default_view_all,
-              'year'      => $year,
-              'month'     => $month,
-              'day'       => $day,
-              'area'      => $area,
-              'room'      => $room);
+$vars = array('view'  => (isset($view)) ? $view : $default_view,
+              'year'  => $year,
+              'month' => $month,
+              'day'   => $day,
+              'area'  => $area,
+              'room'  => $room);
 
 $returl .= '?' . http_build_query($vars, '', '&');
 
@@ -743,7 +699,7 @@ if (isset($rep_type) && ($rep_type != REP_NONE) &&
     !is_book_admin($rooms) &&
     !empty($auth['only_admin_can_book_repeat']))
 {
-  showAccessDenied($view, $view_all, $year, $month, $day, $area, $room ?? null);
+  showAccessDenied($view, $view_all, $year, $month, $day, $area, isset($room) ? $room : null);
   exit;
 }
 
@@ -825,83 +781,69 @@ foreach ($rooms as $room_id)
 
 $just_check = $is_ajax && !$commit;
 $this_id = (isset($id)) ? $id : null;
-$send_mail = ($no_mail) ? false : need_to_send_mail();
+$send_mail = ($no_mail) ? FALSE : need_to_send_mail();
 
-try
+// Wrap the editing process in a transaction, because if deleting the old booking should fail for
+// some reason then we'll potentially be left with two overlapping bookings.  A deletion could fail
+// if, for example, the database user hasn't been granted DELETE rights.
+
+// Acquire mutex to lock out others trying to book the same slot(s).
+if (!db()->mutex_lock(_tbl('entry')))
 {
-  // Wrap the editing process in a transaction, because if deleting the old booking should fail for
-  // some reason then we'll potentially be left with two overlapping bookings.  A deletion could fail
-  // if, for example, the database user hasn't been granted DELETE rights.
+  fatal_error(get_vocab("failed_to_acquire"));
+}
 
-  // Acquire mutex to lock out others trying to book the same slot(s).
-  if (!db()->mutex_lock(_tbl('entry')))
-  {
-    fatal_error(get_vocab("failed_to_acquire"));
-  }
+db()->begin();
 
-  db()->begin();
+$transaction_ok = true;
 
-  $transaction_ok = true;
+$result = mrbsMakeBookings($bookings, $this_id, $just_check, $skip, $original_room_id, $send_mail, $edit_type);
 
-  $result = mrbsMakeBookings($bookings, $this_id, $just_check, $skip, $original_room_id, $send_mail, $edit_type);
+// If we weren't just checking and this was a successful booking and
+// we were editing an existing booking, then delete the old booking
+if (!$just_check && $result['valid_booking'] && isset($id))
+{
+  $transaction_ok = mrbsDelEntry($id, ($edit_type == "series"), true);
+}
 
-  // If we weren't just checking and this was a successful booking and
-  // we were editing an existing booking, then delete the old booking
-  if (!$just_check && $result['valid_booking'] && isset($id))
-  {
-    $transaction_ok = mrbsDelEntry($id, ($edit_type == "series"), true);
-  }
+if ($transaction_ok)
+{
+  db()->commit();
+}
+else
+{
+  db()->rollback();
+  trigger_error('Edit failed.', E_USER_WARNING);
+}
 
-  if ($transaction_ok)
-  {
-    db()->commit();
-  }
-  else
-  {
-    db()->rollback();
-    trigger_error('Edit failed.', E_USER_WARNING);
-  }
-
-  db()->mutex_unlock(_tbl('entry'));
+db()->mutex_unlock(_tbl('entry'));
 
 
-  // If this is an Ajax request, output the result and finish
-  if ($is_ajax)
+// If this is an Ajax request, output the result and finish
+if ($is_ajax)
+{
+  // Generate the new HTML
+  if ($commit)
   {
     // Generate the new HTML
-    if ($commit)
+    require_once "functions_table.inc";
+
+    switch ($view)
     {
-      // Generate the new HTML
-      require_once "functions_table.inc";
-
-      switch ($view)
-      {
-        case 'day':
-          $result['table_innerhtml'] = day_table_innerhtml($view, $year, $month, $day, $area, $room, $timetohighlight);
-          break;
-        case 'week':
-          $result['table_innerhtml'] = week_table_innerhtml($view, $view_all, $year, $month, $day, $area, $room, $timetohighlight);
-          break;
-        default:
-          throw new \Exception("Unsupported view '$view'");
-          break;
-      }
+      case 'day':
+        $result['table_innerhtml'] = day_table_innerhtml($view, $year, $month, $day, $area, $room, $timetohighlight);
+        break;
+      case 'week':
+        $result['table_innerhtml'] = week_table_innerhtml($view, $view_all, $year, $month, $day, $area, $room, $timetohighlight);
+        break;
+      default:
+        throw new \Exception("Unsupported view '$view'");
+        break;
     }
-    http_headers(array("Content-Type: application/json"));
-    echo json_encode($result);
-    exit;
   }
-}
-catch (\Exception $e)
-{
-  if ($is_ajax)
-  {
-    output_exception_error($e, true);
-    http_response_code(500);
-    exit;
-  }
-
-  exception_handler($e);
+  http_headers(array("Content-Type: application/json"));
+  echo json_encode($result);
+  exit;
 }
 
 // Everything was OK.   Go back to where we came from
@@ -919,7 +861,7 @@ else
       'month'     => $month,
       'day'       => $day,
       'area'      => $area,
-      'room'      => $room ?? null
+      'room'      => isset($room) ? $room : null
     );
 
   print_header($context);
@@ -940,7 +882,7 @@ else
   if (!empty($result['conflicts']))
   {
     echo "<p>\n";
-    echo get_vocab("conflict") . "\n";
+    echo get_vocab("conflict").":\n";
     echo "</p>\n";
     echo "<ul>\n";
     foreach ($result['conflicts'] as $conflict)
@@ -981,7 +923,7 @@ if (empty($result['violations']['errors'])  &&
     ));
   $form->addElement($submit);
   // Force a skip next time round
-  $skip = true;
+  $skip = 1;
 }
 
 // Put the booking data in as hidden inputs
@@ -995,7 +937,7 @@ foreach ($form_vars as $var => $var_type)
     {
       if (isset($value))
       {
-        $form->addHiddenInput("{$var}[]", $value);
+        $form->addHiddenInput("${var}[]", $value);
       }
     }
   }

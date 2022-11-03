@@ -165,7 +165,7 @@ $(document).on('page_ready', function() {
 
   <?php // Retrieve the data that the JavaScript files need. ?>
   args = $('body').data();
-  
+
   <?php // Fire off the Ajax requests for username fields ?>
   fillUsernameFields();
 
@@ -440,13 +440,6 @@ $(document).on('page_ready', function() {
       input.attr('type', newType);
     });
 
-  <?php // Deobfuscate email addresses ?>
-  $('.contact').each(function() {
-    var decoded = base64Decode($(this).data('html'));
-    if (decoded !== false) {
-      $(this).replaceWith(decoded);
-    }
-  });
 });
 
 <?php // We define our own page ready event so that we can trigger it after an Ajax load ?>

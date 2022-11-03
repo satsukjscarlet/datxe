@@ -8,49 +8,14 @@ use PDOException;
 class DB_pgsql extends DB
 {
   const DB_DEFAULT_PORT = 5432;
-  const DB_DBO_DRIVER   = "pgsql";
-
-  private const MIN_VERSION     = '8.2';
-
-  private const OPTIONS = array();
-  private const OPTIONS_MAP = array();
+  const DB_DBO_DRIVER = "pgsql";
 
 
-  // The SensitiveParameter attribute needs to be on a separate line for PHP 7.
-  // The attribute is only recognised by PHP 8.2 and later.
-  public function __construct(
-    string $db_host,
-    #[\SensitiveParameter]
-    string $db_username,
-    #[\SensitiveParameter]
-    string $db_password,
-    #[\SensitiveParameter]
-    string $db_name,
-    bool $persist=false,
-    ?int $db_port=null,
-    array $db_options=[])
+  public function __construct($db_host, $db_username, $db_password, $db_name, $persist=false, $db_port=null)
   {
-    $driver_options = self::OPTIONS;
-
-    // If user-defined driver options exist add them in to the standard driver options, having
-    // first replaced the keys with their PDO values.
-    if (!empty($db_options['pgsql']))
-    {
-      $driver_options = self::replaceOptionKeys($db_options['pgsql'], self::OPTIONS_MAP) + $driver_options;
-    }
-
     try
     {
-      $this->connect(
-          $db_host,
-          $db_username,
-          $db_password,
-          $db_name,
-          $persist,
-          $db_port,
-          $driver_options
-        );
-      $this->checkVersion();
+      $this->connect($db_host, $db_username, $db_password, $db_name, $persist, $db_port);
     }
     catch (PDOException $e)
     {
@@ -67,9 +32,9 @@ class DB_pgsql extends DB
 
   // A small utility function (not part of the DB abstraction API) to
   // resolve a qualified table name into its schema and table components.
-  // Returns an array indexed by 'table_schema' and 'table_name'.
+  // Returns an an array indexed by 'table_schema' and 'table_name'.
   // 'table_schema' can be NULL
-  private static function resolve_table(string $table) : array
+  private static function resolve_table($table)
   {
     if (utf8_strpos($table, '.') === false)
     {
@@ -99,7 +64,7 @@ class DB_pgsql extends DB
   // should be discouraged.   And a PostgreSQL user generating custom fields would expect them to
   // be folded to lower case anyway, so presumably wouldn't try and create column names differing
   // only in case.
-  public function quote(string $identifier) : string
+  public function quote($identifier)
   {
     $quote_char = '"';
     $parts = explode('.', strtolower($identifier));
@@ -109,101 +74,80 @@ class DB_pgsql extends DB
 
   // Return the value of an autoincrement field from the last insert.
   // For PostgreSQL, this must be a SERIAL type field.
-  public function insert_id(string $table, string $field)
+  public function insert_id($table, $field)
   {
     $seq_name = $table . "_" . $field . "_seq";
     return $this->dbh->lastInsertId($seq_name);
   }
 
 
-  // Hash a string into an int.
-  // In PostgreSQL advisory lock keys are BIGINTs.
-  private static function hash(string $name) : int
+  // Acquire a mutual-exclusion lock on the named table. For portability:
+  // This will not lock out SELECTs.
+  // It may lock out DELETE/UPDATE/INSERT or not, depending on the implementation.
+  // It will lock out other callers of this routine with the same name argument.
+  // It may timeout and return false, or may wait forever.
+  // It returns true when the lock has been acquired.
+  // Caller must release the lock with mutex_unlock().
+  // Caller must not have more than one mutex at any time.
+  // Do not mix this with begin()/end() calls.
+  //
+  // In PostgreSQL, the EXCLUSIVE mode lock excludes all but SELECT.
+  // It does not timeout, but waits forever for the lock.
+  public function mutex_lock($name)
   {
-    return crc32($name);
-  }
-
-
-  // Acquire a mutual-exclusion lock.
-  // Returns true if the lock is acquired successfully, otherwise false.
-  public function mutex_lock(string $name) : bool
-  {
-    // pg_advisory_lock() will block indefinitely by default until a lock
-    // is obtained or a deadlock detected.
-    // TODO: should we set a lock timeout?
     try
     {
-      $this->query("SELECT pg_advisory_lock(" . self::hash($name) . ")");
+      // LOCK TABLE can only be used in transaction blocks
+      if (!$this->dbh->inTransaction())
+      {
+        $this->begin();
+      }
+      $this->command("LOCK TABLE $name IN EXCLUSIVE MODE");
     }
     catch (DBException $e)
     {
-      trigger_error($e->getMessage());
       return false;
     }
 
-    $this->mutex_locks[] = $name;
-
+    $this->mutex_lock_name = $name;
     return true;
   }
 
 
-  // Release a mutual-exclusion lock.
-  // Returns true if the lock is released successfully, otherwise false.
-  public function mutex_unlock(string $name) : bool
+  // Release a mutual-exclusion lock on the named table. See mutex_lock().
+  // In PostgreSQL, all locks are released by closing the transaction; there
+  // is no other way.
+  // Returns true if the lock is released successfully, otherwise false
+  public function mutex_unlock($name)
   {
-    $result = $this->query1("SELECT pg_advisory_unlock(" . self::hash($name) . ")");
-
-    if (!is_bool($result))
+    if ($this->dbh->inTransaction())
     {
-      $result = false;
+      $this->commit();
     }
 
-    if ($result)
+    $this->mutex_lock_name = null;
+    return true;
+  }
+
+
+  // Destructor cleans up the connection
+  function __destruct()
+  {
+    //print "PostgreSQL destructor called\n";
+
+    // Release any forgotten locks
+    if (isset($this->mutex_lock_name))
     {
-      if (($key = array_search($name, $this->mutex_locks)) !== false)
-      {
-        unset($this->mutex_locks[$key]);
-      }
+      $this->command("ABORT", array());
     }
 
-    return $result;
-  }
-
-
-  // Release all mutual-exclusion locks.
-  public function mutex_unlock_all() : void
-  {
-    $this->query1("SELECT pg_advisory_unlock_all()");
-  }
-
-
-  // Checks that the database version meets the minimum requirement and dies if not
-  private function checkVersion() : void
-  {
-    $this_version = $this->versionNumber();
-    if (version_compare($this_version, self::MIN_VERSION) < 0)
-    {
-      $this->versionDie('PostgreSQL', $this_version, self::MIN_VERSION);
-    }
-  }
-
-
-  // Return a string identifying the database version and type
-  public function version() : string
-  {
-    return $this->versionString();
-  }
-
-
-  // Just returns a version number, eg "9.2.24"
-  private function versionNumber() : string
-  {
-    return $this->query1("SHOW SERVER_VERSION");
+    // Rollback any outstanding transactions
+    $this->rollback();
   }
 
 
   // Check if a table exists
-  public function table_exists(string $table) : bool
+  public function table_exists($table)
   {
     // $table can be a qualified name.  We need to resolve it if necessary into its component
     // parts, the schema and table names
@@ -259,29 +203,28 @@ class DB_pgsql extends DB
   //
   //  NOTE: the type mapping is incomplete and just covers the types commonly
   //  used by MRBS
-  public function field_info(string $table) : array
+  public function field_info($table)
   {
     $fields = array();
 
     // Map PostgreSQL types on to a set of generic types
     $nature_map = array(
-      'bigint'                    => 'integer',
-      'boolean'                   => 'boolean',
-      'bytea'                     => 'binary',
-      'character'                 => 'character',
-      'character varying'         => 'character',
-      'date'                      => 'timestamp',
-      'decimal'                   => 'decimal',
-      'double precision'          => 'real',
-      'integer'                   => 'integer',
-      'numeric'                   => 'decimal',
-      'real'                      => 'real',
-      'smallint'                  => 'integer',
-      'text'                      => 'character',
-      'time with time zone'       => 'timestamp',
-      'time without time zone'    => 'timestamp',
-      'timestamp with time zone'  => 'timestamp'
-    );
+        'bigint'                    => 'integer',
+        'boolean'                   => 'boolean',
+        'bytea'                     => 'binary',
+        'character'                 => 'character',
+        'character varying'         => 'character',
+        'date'                      => 'timestamp',
+        'decimal'                   => 'decimal',
+        'double precision'          => 'real',
+        'integer'                   => 'integer',
+        'numeric'                   => 'decimal',
+        'real'                      => 'real',
+        'smallint'                  => 'integer',
+        'text'                      => 'character',
+        'time with time zone'       => 'timestamp',
+        'timestamp with time zone'  => 'timestamp'
+      );
 
     // $table can be a qualified name.  We need to resolve it if necessary into its component
     // parts, the schema and table names
@@ -290,8 +233,8 @@ class DB_pgsql extends DB
     $sql_params = array();
 
     // $table_name and $table_schema should be trusted but escape them anyway for good measure
-    $sql = "SELECT column_name, column_default, data_type, numeric_precision, numeric_scale,
-                   character_maximum_length, character_octet_length, is_nullable
+    $sql = "SELECT column_name, data_type, numeric_precision, numeric_scale, character_maximum_length,
+                   character_octet_length, is_nullable
             FROM information_schema.columns
             WHERE table_name = ?";
     $sql_params[] = $table_parts['table_name'];
@@ -308,15 +251,8 @@ class DB_pgsql extends DB
     {
       $name = $row['column_name'];
       $type = $row['data_type'];
-      $default = $row['column_default'];
       // map the type onto one of the generic natures, if a mapping exists
       $nature = (array_key_exists($type, $nature_map)) ? $nature_map[$type] : $type;
-      // Convert the default to be of the correct type
-      if (isset($default) && ($nature == 'integer'))
-      {
-        $default = (int) $default;
-      }
-
       // Get a length value;  one of these values should be set
       if (isset($row['numeric_precision']))
       {
@@ -338,16 +274,15 @@ class DB_pgsql extends DB
         $length = $row['character_octet_length'];
       }
       // Convert the is_nullable field to a boolean
-      $is_nullable = (utf8_strtolower($row['is_nullable']) == 'yes');
+      $is_nullable = (utf8_strtolower($row['is_nullable']) == 'yes') ? true : false;
 
       $fields[] = array(
-        'name' => $name,
-        'type' => $type,
-        'nature' => $nature,
-        'length' => $length,
-        'is_nullable' => $is_nullable,
-        'default' => $default
-      );
+          'name' => $name,
+          'type' => $type,
+          'nature' => $nature,
+          'length' => $length,
+          'is_nullable' => $is_nullable
+        );
     }
 
     return $fields;
@@ -356,14 +291,14 @@ class DB_pgsql extends DB
   // Syntax methods
 
   // Generate non-standard SQL for LIMIT clauses:
-  public function syntax_limit(int $count, int $offset) : string
+  public function syntax_limit($count, $offset)
   {
     return " LIMIT $count OFFSET $offset ";
   }
 
 
   // Generate non-standard SQL to output a TIMESTAMP as a Unix-time:
-  public function syntax_timestamp_to_unix(string $fieldname) : string
+  public function syntax_timestamp_to_unix($fieldname)
   {
     // A PostgreSQL timestamp can be a float.  We need to round it
     // to the nearest integer.
@@ -371,7 +306,7 @@ class DB_pgsql extends DB
   }
 
 
-  // Returns the syntax for a case-sensitive string "equals" function
+  // Returns the syntax for a case sensitive string "equals" function
   //
   // Also takes a required pass-by-reference parameter to modify the SQL
   // parameters appropriately.
@@ -379,7 +314,7 @@ class DB_pgsql extends DB
   // NB:  This function is also assumed to do a strict comparison, ie
   // take account of training spaces.  (The '=' comparison in MySQL allows
   // trailing spaces, eg 'john' = 'john ').
-  public function syntax_casesensitive_equals(string $fieldname, string $string, array &$params) : string
+  public function syntax_casesensitive_equals($fieldname, $string, &$params)
   {
     $params[] = $string;
 
@@ -388,14 +323,15 @@ class DB_pgsql extends DB
 
 
   // Generate non-standard SQL to match a string anywhere in a field's value
-  // in a case-insensitive manner. $s is the un-escaped/un-slashed string.
+  // in a case insensitive manner. $s is the un-escaped/un-slashed string.
   //
   // Also takes a required pass-by-reference parameter to modify the SQL
   // parameters appropriately.
   //
-  // In PostgreSQL, we can do case-insensitive regexp with ~*, but not case-insensitive LIKE matching.
+  // In PostgreSQL, we can do case insensitive regexp with ~*, but not case
+  // insensitive LIKE matching.
   // Quotemeta escapes everything we need except for single quotes.
-  public function syntax_caseless_contains(string $fieldname, string $string, array &$params) : string
+  public function syntax_caseless_contains($fieldname, $string, &$params)
   {
     $params[] = quotemeta($string);
 
@@ -403,25 +339,16 @@ class DB_pgsql extends DB
   }
 
 
-  // Generate non-standard SQL to add a table column after another specified
-  // column
-  public function syntax_addcolumn_after(string $fieldname) : string
-  {
-    // Can't be done in PostgreSQL without dropping and re-creating the table.
-    return '';
-  }
-
-
   // Generate non-standard SQL to specify a column as an auto-incrementing
   // integer while doing a CREATE TABLE
-  public function syntax_createtable_autoincrementcolumn() : string
+  public function syntax_createtable_autoincrementcolumn()
   {
     return "serial";
   }
 
 
   // Returns the syntax for a bitwise XOR operator
-  public function syntax_bitwise_xor() : string
+  public function syntax_bitwise_xor()
   {
     return "#";
   }
@@ -431,7 +358,7 @@ class DB_pgsql extends DB
   // parts, separated by a delimiter.  $part can be 1 or 2.
   // Also takes a required pass-by-reference parameter to modify the SQL
   // parameters appropriately.
-  public function syntax_simple_split(string $fieldname, string $delimiter, int $part, array &$params) : string
+  public function syntax_simple_split($fieldname, $delimiter, $part, &$params)
   {
     switch ($part)
     {
@@ -450,7 +377,7 @@ class DB_pgsql extends DB
 
 
   // Returns the syntax for aggregating a number of rows as a delimited string
-  public function syntax_group_array_as_string(string $fieldname, string $delimiter=',') : string
+  public function syntax_group_array_as_string($fieldname, $delimiter=',')
   {
     // array_agg introduced in PostgreSQL version 8.4
     //

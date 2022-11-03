@@ -19,7 +19,23 @@ namespace MRBS;
  * on existing areas
  **************************************************************************/
 
-
+/************************************************* *************************
+  * Tệp mặc định khu vực MRBS (cài đặt mặc định cho khu vực MỚI)
+  *
+  * LÀM _ KHÔNG_ SỬA ĐỔI TẬP TIN NÀY CỦA CHÍNH BẠN. NÓ CHỈ DÀNH CHO _ NỘI BỘ_ SỬ DỤNG.
+  *
+  * ĐỂ CẤU HÌNH MRBS CHO HỆ THỐNG CỦA BẠN THÊM CÁC THÔNG SỐ CẤU HÌNH TỪ
+  * TẬP TIN NÀY VÀO config.inc.php, LÀM _ KHÔNG_ CHỈNH SỬA TẬP TIN NÀY.
+  *
+  * Tệp này chứa các cài đặt mặc định cho các thông số cấu hình
+  * có thể được đặt trên cơ sở từng khu vực bằng cách sử dụng trình duyệt web và làm theo
+  * Liên kết "Phòng" trong MRBS. Cài đặt trong tệp này chỉ xác định
+  * các giá trị mặc định được sử dụng khi các vùng mới được tạo. Chúng được giữ lại
+  * trong một tệp riêng biệt thành mặc định của hệ thống để thu hút sự chú ý đến thực tế là
+  * chúng chỉ là cài đặt mặc định cho các khu vực mới: nó có thể là một chút
+  * đôi khi bực bội khi chỉnh sửa các giá trị này và thấy chúng không có tác dụng
+  * trên các khu vực hiện có
+  ************************************************** ************************/
 
 /*******************
  * Calendar settings
@@ -29,6 +45,11 @@ namespace MRBS;
 // (FALSE and the default) or user defined periods (TRUE).
 
 // $enable_periods is settable on a per-area basis.
+
+// Cài đặt này kiểm soát việc sử dụng khoảng thời gian dựa trên "đồng hồ" hay "thời gian"
+// (FALSE và mặc định) hoặc khoảng thời gian do người dùng xác định (TRUE).
+
+// $ enable_periods có thể được thiết lập trên cơ sở từng khu vực.
 
 $enable_periods = FALSE;  // Default value for new areas
 
@@ -46,6 +67,20 @@ $enable_periods = FALSE;  // Default value for new areas
 
 // Resolution - what blocks can be booked, in seconds.
 // Default is half an hour: 1800 seconds.
+
+// CÀI ĐẶT THỜI GIAN
+// --------------
+
+// Tất cả các cài đặt này đều được đặt cho từng khu vực thông qua MRBS. Đây là những thứ mặc định
+// cài đặt được sử dụng khi một vùng mới được tạo.
+
+// Cài đặt "Thời gian" bị bỏ qua nếu $ enable_periods là TRUE.
+
+// Lưu ý: Hãy cẩn thận để tránh chỉ định các tùy chọn hiển thị các khối chồng chéo lên nhau
+// ngày hôm sau, vì nó không được xử lý đúng cách.
+
+// Độ phân giải - khối nào có thể được đặt trước, trong vài giây.
+// Mặc định là nửa giờ: 1800 giây.
 $resolution = (30 * 60);  // DEFAULT VALUE FOR NEW AREAS
 
 // If the following variable is set to TRUE, the resolution of bookings

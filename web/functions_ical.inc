@@ -2,7 +2,6 @@
 namespace MRBS;
 
 use MRBS\ICalendar\Series;
-use PHPMailer\PHPMailer\PHPMailer;
 
 
 // Extracts a VTIMEZONE component from a VCALENDAR.
@@ -771,8 +770,8 @@ function create_ical_event($method, $data, $addresses=null, $series=false)
 {
   require_once "functions_mail.inc";
 
-  global $mail_settings, $timezone, $default_area_room_delimiter;
-  global $partstat_accepted;
+  global $mail_settings, $timezone,
+         $default_area_room_delimiter;
 
   $vtimezone = get_vtimezone($timezone);
 
@@ -861,19 +860,19 @@ function create_ical_event($method, $data, $addresses=null, $series=false)
   // if the organizer's email address is the same as the recipient's - presumably because
   // they assume that the recipient already knows about the event.
 
-  $organizer = PHPMailer::parseAddresses($mail_settings['organizer'], true, get_mail_charset())[0];
-  if (!isset($organizer['name']) || ($organizer['name'] === ''))
+  $organizer = parse_address($mail_settings['organizer']);
+  if (!isset($organizer['common_name']) || ($organizer['common_name'] === ''))
   {
-    $organizer['name'] = get_mail_vocab('mrbs');
+    $organizer['common_name'] = get_mail_vocab('mrbs');
   }
 
   if (isset($organizer['address']) && ($organizer['address'] !== ''))
   {
-    $results[] = "ORGANIZER;CN=\"" . ical_escape_quoted_string($organizer['name']) . "\":mailto:" . $organizer['address'];
+    $results[] = "ORGANIZER;CN=\"" . ical_escape_quoted_string($organizer['common_name']) . "\":mailto:" . $organizer['address'];
   }
 
   // Put the people on the "to" list as required participants and those on the cc
-  // list as non-participants.   In theory the email client can then decide whether
+  // list as non participants.   In theory the email client can then decide whether
   // to enter the booking automatically on the user's calendar - although at the
   // time of writing (Dec 2010) there don't seem to be any that do so!
   if (!empty($addresses))
@@ -900,7 +899,7 @@ function create_ical_event($method, $data, $addresses=null, $series=false)
               {
                 // It's possible that an address could appear on more than one
                 // line, in which case we only want to have one ATTENDEE property
-                // for that address and we'll choose the REQ-PARTICIPANT.   (Apart
+                // for that address and we'll chose the REQ-PARTICIPANT.   (Apart
                 // from two conflicting ATTENDEES not making sense, it also breaks
                 // some applications, eg Apple Mail/iCal)
                 continue 2;  // Move on to the next attendeee
@@ -909,11 +908,10 @@ function create_ical_event($method, $data, $addresses=null, $series=false)
               break;
           }
           // Use the common name if there is one
-          $attendee = PHPMailer::parseAddresses($attendee, true, get_mail_charset())[0];
-          $partstat = ($partstat_accepted) ? "ACCEPTED" : "NEEDS-ACTION";
+          $attendee = parse_address($attendee);
           $results[] = "ATTENDEE;" .
-                       ((isset($attendee['name']) && ($attendee['name'] !== '')) ? "CN=\"" . ical_escape_quoted_string($attendee['name']) . "\";" : "") .
-                       "PARTSTAT=$partstat;ROLE=$role:mailto:" . $attendee['address'];
+                       ((isset($attendee['common_name']) && ($attendee['common_name'] !== '')) ? "CN=\"" . ical_escape_quoted_string($attendee['common_name']) . "\";" : "") .
+                       "PARTSTAT=NEEDS-ACTION;ROLE=$role:mailto:" . $attendee['address'];
         }
       }
     }

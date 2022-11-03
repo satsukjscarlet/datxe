@@ -7,7 +7,6 @@ use PHPMailer\PHPMailer\PHPMailer;
 use function MRBS\_tbl;
 use function MRBS\auth;
 use function MRBS\db;
-use function MRBS\format_compound_name;
 use function MRBS\generate_global_uid;
 use function MRBS\generate_token;
 use function MRBS\get_mail_charset;
@@ -32,11 +31,7 @@ class AuthDb extends Auth
    *   false    - The pair are invalid or do not exist
    *   string   - The validated username
    */
-  public function validateUser(
-    #[\SensitiveParameter]
-    ?string $user,
-    #[\SensitiveParameter]
-    ?string $pass)
+  public function validateUser(?string $user, ?string $pass)
   {
     // The string $user that the user logged on with could be either a username or
     // an email address, or even possibly just the local part of an email address.
@@ -143,7 +138,7 @@ class AuthDb extends Auth
   }
 
 
-  protected function getUserFresh(string $username) : ?User
+  public function getUser(string $username) : ?User
   {
     $row = $this->getUserByUsername($username);
 
@@ -174,12 +169,7 @@ class AuthDb extends Auth
   // Return an array of users, indexed by 'username' and 'display_name'
   public function getUsernames() : array
   {
-    $sql = "SELECT name AS username,
-                   CASE
-                       WHEN display_name IS NOT NULL AND display_name!='' THEN display_name
-                       ELSE name
-                   END
-                   AS display_name
+    $sql = "SELECT name AS username, display_name AS display_name
               FROM " . _tbl('users') . "
           ORDER BY display_name";
 
@@ -286,12 +276,7 @@ class AuthDb extends Auth
   }
 
 
-  public function resetPassword(
-    #[\SensitiveParameter]
-    ?string $username,
-    ?string $key,
-    #[\SensitiveParameter]
-    ?string $password) : bool
+  public function resetPassword(?string $username, ?string $key, ?string $password) : bool
   {
     // Check that we've got a password and we're allowed to reset the password
     if (!isset($password) || !auth()->isValidReset($username, $key))
@@ -351,159 +336,28 @@ class AuthDb extends Auth
   }
 
 
-  // Returns an unsorted array of registrants display names
-  protected function getRegistrantsDisplayNamesUnsortedWithout(int $id, bool $with_registrant_username) : array
+  protected function getRegistrantsDisplayNamesUnsorted(int $id) : array
   {
     // For the 'db' auth type we can improve performance by doing a single query
     // on the participants table joined with the users table.  (Actually it's two
     // queries in a UNION: one getting the rows where there isn't an entry in the
     // users table and another the rows where there is.)
-    $sql = "SELECT P.username as username,
-                   P.username as display_name
+    $sql = "SELECT P.username as display_name
               FROM " . _tbl('participants') . " P
          LEFT JOIN " . _tbl('users') . " U
                 ON P.username=U.name
              WHERE P.entry_id=:entry_id
-               AND (U.display_name IS NULL OR U.display_name='')
+               AND U.name IS NULL
              UNION
-            SELECT U.name as username,
-                   U.display_name as display_name
+            SELECT U.display_name
               FROM " . _tbl('participants') . " P
          LEFT JOIN " . _tbl('users') . " U
                 ON P.username=U.name
              WHERE P.entry_id=:entry_id
-               AND U.display_name IS NOT NULL AND U.display_name!=''";
+               AND U.name IS NOT NULL";
 
-    $result = array();
-    $res = db()->query($sql, array(':entry_id' => $id));
-
-    while (false !== ($row = $res->next_row_keyed()))
-    {
-      $result[] = ($with_registrant_username) ? format_compound_name($row['username'], $row['display_name']) : $row['display_name'];
-    }
-
-    return $result;
+    return db()->query_array($sql, array(':entry_id' => $id));
   }
-
-
-  // Returns an unsorted array of registrants display names, including, if
-  // different, the display name of the person that registered them.
-  protected function getRegistrantsDisplayNamesUnsortedWith(int $id, bool $with_registrant_username) : array
-  {
-    // For the 'db' auth type we can improve performance by doing a single query
-    // on the participants table joined with the users table.  (Actually it's four
-    // queries in a UNION: one getting the rows where there isn't an entry in the
-    // users table and another the rows where there is, etc. for both the registrant
-    // and the person that registered them.)
-    $sql = "SELECT P.username as registrant_username,
-                   P.username as registrant_display_name,
-                   P.create_by as create_by_username,
-                   P.create_by as create_by_display_name
-              FROM " . _tbl('participants') . " P
-         LEFT JOIN " . _tbl('users') . " U1
-                ON P.username=U1.name
-         LEFT JOIN " . _tbl('users') . " U2
-                ON P.create_by=U2.name
-             WHERE P.entry_id=:entry_id
-               AND (U1.display_name IS NULL OR U1.display_name='')
-               AND (U2.display_name IS NULL OR U2.display_name='')
-
-             UNION
-
-            SELECT P.username as registrant_username,
-                   P.username as registrant_display_name,
-                   P.create_by as create_by_username,
-                   U2.display_name as registrant_display_name
-              FROM " . _tbl('participants') . " P
-         LEFT JOIN " . _tbl('users') . " U1
-                ON P.username=U1.name
-         LEFT JOIN " . _tbl('users') . " U2
-                ON P.create_by=U2.name
-             WHERE P.entry_id=:entry_id
-               AND (U1.display_name IS NULL OR U1.display_name='')
-               AND U2.display_name IS NOT NULL AND U2.display_name!=''
-
-             UNION
-
-            SELECT P.username as registrant_username,
-                   U1.display_name as registrant_display_name,
-                   P.create_by as create_by_username,
-                   P.create_by as registrant_display_name
-              FROM " . _tbl('participants') . " P
-         LEFT JOIN " . _tbl('users') . " U1
-                ON P.username=U1.name
-         LEFT JOIN " . _tbl('users') . " U2
-                ON P.create_by=U2.name
-             WHERE P.entry_id=:entry_id
-               AND U1.display_name IS NOT NULL AND U1.display_name!=''
-               AND (U2.display_name IS NULL OR U2.display_name='')
-
-             UNION
-
-            SELECT P.username as registrant_username,
-                   U1.display_name as registrant_display_name,
-                   P.create_by as create_by_username,
-                   U2.display_name as registrant_display_name
-              FROM " . _tbl('participants') . " P
-         LEFT JOIN " . _tbl('users') . " U1
-                ON P.username=U1.name
-         LEFT JOIN " . _tbl('users') . " U2
-                ON P.create_by=U2.name
-             WHERE P.entry_id=:entry_id
-               AND U1.display_name IS NOT NULL AND U1.display_name!=''
-               AND U2.display_name IS NOT NULL AND U2.display_name!=''";
-
-    $result = array();
-
-    $res =  db()->query($sql, array(':entry_id' => $id));
-
-    while (false !== ($row = $res->next_row_keyed()))
-    {
-      if ($row['registrant_username'] === $row['create_by_username'])
-      {
-        if ($with_registrant_username)
-        {
-          $result[] = format_compound_name($row['registrant_username'], $row['registrant_display_name']);
-        }
-        else
-        {
-          $result[] = $row['registrant_display_name'];
-        }
-      }
-      else
-      {
-        if ($with_registrant_username && ($row['registrant_username'] !== $row['registrant_display_name']))
-        {
-          $result[] = get_vocab('registrant_username_and_registered_by',
-                                $row['registrant_username'],
-                                $row['registrant_display_name'],
-                                $row['create_by_display_name']);
-        }
-        else
-        {
-          $result[] = get_vocab('registrant_registered_by',
-                                $row['registrant_display_name'],
-                                $row['create_by_display_name']);
-        }
-      }
-    }
-
-    return $result;
-  }
-
-
-  protected function getRegistrantsDisplayNamesUnsorted(int $id, bool $with_registered_by, $with_registrant_username) : array
-  {
-    if ($with_registered_by)
-    {
-      return $this->getRegistrantsDisplayNamesUnsortedWith($id, $with_registrant_username);
-    }
-    else
-    {
-      return $this->getRegistrantsDisplayNamesUnsortedWithout($id, $with_registrant_username);
-    }
-  }
-
 
   private function notifyUser(array $users, string $key) : bool
   {
@@ -712,11 +566,7 @@ class AuthDb extends Auth
   }
 
 
-  private function rehash(
-    #[\SensitiveParameter]
-    string $password,
-    string $column_name,
-    string $column_value) : void
+  private function rehash(string $password, string $column_name, string $column_value) : void
   {
     $sql_params = array(password_hash($password, PASSWORD_DEFAULT));
 
@@ -752,12 +602,7 @@ class AuthDb extends Auth
   // where $column_name=$column_value.  Typically $column_name will be either
   // 'name' or 'email'.
   // Returns a boolean: true if they match, otherwise false.
-  private function checkPassword(
-    #[\SensitiveParameter]
-    string $password,
-    string $password_hash,
-    string $column_name,
-    string $column_value) : bool
+  private function checkPassword(string $password, string $password_hash, string $column_name, string $column_value) : bool
   {
     $result = false;
     $do_rehash = false;

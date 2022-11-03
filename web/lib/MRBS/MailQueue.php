@@ -1,7 +1,6 @@
 <?php
 namespace MRBS;
 
-use Mail_mimePart;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 
@@ -16,14 +15,7 @@ class MailQueue
   protected static $mails = array();
 
 
-  public static function add(
-      array $addresses,
-      string $subject,
-      array $text_body,
-      array $html_body,
-      ?array $attachment,
-      string $charset = 'us-ascii'
-    ) : void
+  public static function add($addresses, $subject, $text_body, $html_body, $attachment, $charset = 'us-ascii')
   {
     global $mail_settings;
 
@@ -51,7 +43,7 @@ class MailQueue
   }
 
 
-  public static function flush() : void
+  public static function flush()
   {
     foreach (self::$mails as $mail)
     {
@@ -67,7 +59,7 @@ class MailQueue
   }
 
 
-  protected static function getNRecipients(array $addresses) : int
+  protected static function getNRecipients($addresses)
   {
     if (empty($addresses))
     {
@@ -77,7 +69,7 @@ class MailQueue
     $recipients = (!empty($addresses['to'])) ? $addresses['to'] : '';
     $recipients .= (!empty($addresses['cc'])) ? ',' . $addresses['cc'] : '';
     $recipients .= (!empty($addresses['bcc'])) ? ',' . $addresses['bcc'] : '';
-    $parsed_addresses = PHPMailer::parseAddresses($recipients, true, get_mail_charset());
+    $parsed_addresses = PHPMailer::parseAddresses($recipients);
 
     return count($parsed_addresses);
   }
@@ -104,16 +96,9 @@ class MailQueue
    *                                    'method'  the iCalendar METHOD
    *                                    'name'    the name to give it
    * @param string  $charset          character set used in body
-   * @return bool                     TRUE oon success, FALSE on failure
+   * @return bool                     TRUE or PEAR error object if fails
    */
-  protected static function sendMail(
-      array $addresses,
-      string $subject,
-      array $text_body,
-      array $html_body,
-      ?array $attachment,
-      string $charset = 'us-ascii'
-    ) : bool
+  protected static function sendMail($addresses, $subject, $text_body, $html_body, $attachment, $charset = 'us-ascii')
   {
     // Modify the include path because this is run after shutdown when the working directory may have
     // changed (see the note in https://www.php.net/manual/en/function.register-shutdown-function.php).
@@ -222,22 +207,13 @@ class MailQueue
     $mail->AllowEmpty = true;  // remove this for production
     $mail->addCustomHeader('Auto-Submitted', 'auto-generated');
 
-    if (!empty($addresses['reply_to']))
-    {
-      $reply_to_addresses = PHPMailer::parseAddresses($addresses['reply_to'], true, get_mail_charset());
-      foreach ($reply_to_addresses as $reply_to_address)
-      {
-        $mail->addReplyTo($reply_to_address['address'], $reply_to_address['name']);
-      }
-    }
-
     if (isset($addresses['from']))
     {
-      $from_addresses = PHPMailer::parseAddresses($addresses['from'], true, get_mail_charset());
+      $from_addresses = PHPMailer::parseAddresses($addresses['from']);
       $mail->setFrom($from_addresses[0]['address'], $from_addresses[0]['name']);
     }
 
-    $to_addresses = PHPMailer::parseAddresses($addresses['to'], true, get_mail_charset());
+    $to_addresses = PHPMailer::parseAddresses($addresses['to']);
     foreach ($to_addresses as $to_address)
     {
       $mail->addAddress($to_address['address'], $to_address['name']);
@@ -245,7 +221,7 @@ class MailQueue
 
     if (isset($addresses['cc']))
     {
-      $cc_addresses = PHPMailer::parseAddresses($addresses['cc'], true, get_mail_charset());
+      $cc_addresses = PHPMailer::parseAddresses($addresses['cc']);
       foreach ($cc_addresses as $cc_address)
       {
         $mail->addCC($cc_address['address'], $cc_address['name']);
@@ -254,7 +230,7 @@ class MailQueue
 
     if (isset($addresses['bcc']))
     {
-      $bcc_addresses = PHPMailer::parseAddresses($addresses['bcc'], true, get_mail_charset());
+      $bcc_addresses = PHPMailer::parseAddresses($addresses['bcc']);
       foreach ($bcc_addresses as $bcc_address)
       {
         $mail->addBCC($bcc_address['address'], $bcc_address['name']);
@@ -291,7 +267,7 @@ class MailQueue
     $mime_params = array();
     $mime_params['eol'] = $eol;
     $mime_params['content_type'] = "multipart/alternative";
-    $mime_inner = new Mail_mimePart('', $mime_params);
+    $mime_inner = new \Mail_mimePart('', $mime_params);
 
     // Add the text part
     $mime_params['content_type'] = "text/plain";
@@ -328,7 +304,7 @@ class MailQueue
       $mime_params = array();
       $mime_params['eol'] = $eol;
       $mime_params['content_type'] = "multipart/mixed";
-      $mime = new Mail_mimePart('', $mime_params);
+      $mime = new \Mail_mimePart('', $mime_params);
 
       // Now add the inner section as the first sub part
       $mime_inner = $mime_inner->encode();
@@ -372,10 +348,10 @@ class MailQueue
     {
       $mail->set('MIMEBody', $mime['body']);
       mail_debug("Using backend '" . $mail_settings['admin_backend'] . "'");
-      mail_debug("From: " . ($addresses['from'] ?? ''));
-      mail_debug("To: " . ($addresses['to'] ?? ''));
-      mail_debug("Cc: " . ($addresses['cc'] ?? ''));
-      mail_debug("Bcc: " . ($addresses['bcc'] ?? ''));
+      mail_debug("From: " . (isset($addresses['from']) ? $addresses['from'] : ''));
+      mail_debug("To: " . (isset($addresses['to']) ? $addresses['to'] : ''));
+      mail_debug("Cc: " . (isset($addresses['cc']) ? $addresses['cc'] : ''));
+      mail_debug("Bcc: " . (isset($addresses['bcc']) ? $addresses['bcc'] : ''));
 
       // Throttle the rate of mail sending if required
       if (!empty($mail_settings['rate_limit']))

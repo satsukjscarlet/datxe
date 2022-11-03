@@ -21,7 +21,7 @@ use MRBS\User;
  */
 
 
-class SessionIp extends Session
+class SessionIp extends SessionWithoutLogin
 {
 
   // No need to prompt for a name - IP address always there

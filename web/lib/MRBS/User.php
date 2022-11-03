@@ -9,14 +9,10 @@ use PHPMailer\PHPMailer\PHPMailer;
 
 class User
 {
-  // Standard properties
   public $username;
   public $display_name;
   public $email;
   public $level;
-
-  // Extra properties held here, accessed through magic methods
-  protected  $data = array();
 
 
   public function __construct($username=null)
@@ -27,18 +23,6 @@ class User
     $this->display_name = $username;
     $this->setDefaultEmail();
     $this->level = 0; // Play it safe
-  }
-
-
-  public function __get($name)
-  {
-    return (array_key_exists($name, $this->data)) ? $this->data[$name] : null;
-  }
-
-
-  public function __set($name, $value)
-  {
-    $this->data[$name] = $value;
   }
 
 
@@ -67,7 +51,7 @@ class User
 
     $mailer = new PHPMailer();
     $mailer->CharSet = get_mail_charset();
-
+    
     // Note that addrFormat() returns a MIME-encoded address
     return $mailer->addrFormat(array($this->email, $this->display_name));
   }

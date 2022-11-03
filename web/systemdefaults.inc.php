@@ -20,6 +20,13 @@ namespace MRBS;
 // WARNING!  Do not use this for production systems, as not only will it generate
 // unnecessary output in the broswer, but it could also expose sensitive security
 // information (eg database usernames and passwords).
+// Trả về một chuỗi chứa một tập hợp chi tiết cho $ data bao gồm một nhãn / giá trị
+// ghép nối cho từng phần tử dữ liệu trong mảng $ data. Nếu $ as_html là true thì chuỗi
+// là HTML cho nội dung bảng, tức là trông giống như "<tbody> ... </tbody>".
+// $ keep_private boolean nếu true thì bất kỳ trường private nào sẽ được cấp cho class 'private';
+// lưu ý rằng $ data phải đã có các giá trị được thay thế
+// cho các trường riêng tư
+// boolean $ room_disabled nếu đúng thì một ghi chú sẽ được thêm vào rằng phòng đã bị tắt
 $debug = false;
 
 
@@ -41,7 +48,21 @@ $debug = false;
 //
 // A list of valid timezones can be found at http://php.net/manual/timezones.php
 // The following line must be uncommented by removing the '//' at the beginning
-//$timezone = "Europe/London";
+// Múi giờ mà các phòng họp của bạn hoạt động. Điều này đặc biệt quan trọng
+// để thiết lập điều này nếu bạn đang sử dụng PHP 5 trên Linux. Trong cấu hình này
+// nếu bạn không, các cuộc họp ở DST khác với bạn hiện tại
+// in được bù đắp bởi offset DST không chính xác.
+//
+// Lưu ý rằng múi giờ có thể được đặt trên cơ sở từng khu vực, do đó, nói đúng ra điều này
+// cài đặt phải ở areadefaults.inc.php, nhưng vì nó rất quan trọng nên đặt
+// múi giờ phù hợp mà nó được đưa vào đây.
+//
+// Khi nâng cấp cài đặt hiện có, cài đặt này phải được đặt thành
+// múi giờ mà máy chủ web chạy. Xem tài liệu CÀI ĐẶT để biết thêm thông tin.
+//
+// Có thể tìm thấy danh sách các múi giờ hợp lệ tại http://php.net/manual/timezones.php
+// Dòng sau phải được bỏ ghi chú bằng cách xóa '//' ở đầu
+$timezone = "Asia/Ho_Chi_Minh";
 
 // If you are using iCalendar notifications of bookings (see the mail settings below)
 // then the iCalendar attachment includes a definition of your timezone in
@@ -52,16 +73,34 @@ $debug = false;
 // site prevents external access to the web, this check will time out.  However
 // you can avoid the timeout and stop MRBS checking for up to date versions by
 // setting $zoneinfo_update = false;
+
+// Nếu bạn đang sử dụng thông báo đặt chỗ của iCalendar (xem cài đặt thư bên dưới)
+// thì tệp đính kèm iCalendar bao gồm định nghĩa về múi giờ của bạn trong
+// Định dạng VTIMEZONE. Điều này xác định múi giờ, bao gồm các quy tắc cho Ánh sáng ban ngày
+// Tiết kiệm thời gian chuyển tiếp. Thông tin này được bao gồm trong phân phối MRBS.
+// Tuy nhiên, vì các chính phủ có thể thay đổi các quy tắc theo định kỳ, MRBS sẽ kiểm tra từ
+// thỉnh thoảng để xem có phiên bản mới hơn trên web hay không. Nếu là của bạn
+// site ngăn chặn truy cập từ bên ngoài vào web, quá trình kiểm tra này sẽ hết thời gian. Tuy nhiên
+// bạn có thể tránh hết thời gian chờ và dừng MRBS kiểm tra các phiên bản cập nhật bằng cách
+// thiết lập $ zoneinfo_update = false;
 $zoneinfo_update = true;
 
 // The VTIMEZONE definitions exist in two forms - normal and Outlook compatible.
 // $zoneinfo_outlook_compatible determines which ones to use.
+
+// Định nghĩa VTIMEZONE tồn tại ở hai dạng - bình thường và tương thích với Outlook.
+// $ zoneinfo_outlook_comp Tương thích xác định cái nào sẽ sử dụng.
 $zoneinfo_outlook_compatible = true;
 
 // The VTIMEZONE definitions are cached in the database with an expiry time
 // of $zoneinfo_expiry seconds.   If your server does not have external internet
 // access set $zoneinfo_expiry to PHP_INT_MAX to prevent MRBS from trying to
 // update the VTIMEZONE definitions.
+
+// Định nghĩa VTIMEZONE được lưu trong cơ sở dữ liệu với thời gian hết hạn
+// của $ zoneinfo_expiry giây. Nếu máy chủ của bạn không có internet bên ngoài
+// truy cập đặt $ zoneinfo_expiry thành PHP_INT_MAX để ngăn MRBS cố gắng
+// cập nhật định nghĩa VTIMEZONE.
 $zoneinfo_expiry = 60*60*24*7;    // 7 days
 
 /*******************
@@ -75,16 +114,16 @@ $dbsys = "mysql";
 // tells the system to use Unix Domain Sockets, and $db_port will be ignored;
 // if you want to force TCP connection you can use "127.0.0.1".
 $db_host = "localhost";
-// If you need to use a non-standard port for the database connection you
+// If you need to use a non standard port for the database connection you
 // can uncomment the following line and specify the port number
 // $db_port = 1234;
 // Database name:
 $db_database = "mrbs";
 // Schema name.  This only applies to PostgreSQL and is only necessary if you have more
-// than one schema in your database, and you are also using the same MRBS table names in
+// than one schema in your database and also you are using the same MRBS table names in
 // multiple schemas.
 //$db_schema = "public";
-// Database login username:
+// Database login user name:
 $db_login = "mrbs";
 // Database login password:
 $db_password = 'mrbs-password';
@@ -97,44 +136,23 @@ $db_tbl_prefix = "mrbs_";
 // locks (see http://php.net/manual/en/features.persistent-connections.php) and although
 // MRBS tries to avoid those problems, it is generally better not to use persistent
 // connections if you can.
+
+// Đặt $ db_persist thành true để sử dụng các kết nối cơ sở dữ liệu liên tục (gộp chung) PHP. Ghi chú
+// rằng các kết nối liên tục không được khuyến nghị trừ khi hệ thống của bạn gặp phải vấn đề nghiêm trọng
+// vấn đề hiệu suất mà không có chúng. Chúng có thể gây ra sự cố với các giao dịch và
+// khóa (xem http://php.net/manual/en/features.persists-connections.php) và mặc dù
+// MRBS cố gắng tránh những vấn đề đó, nói chung tốt hơn là không sử dụng dai dẳng
+// kết nối nếu bạn có thể.
 $db_persist = false;
 // The number of times to retry getting a database connection in the event that there are
 // too many connections.  [MySQL only at the moment]
+
+// Số lần thử lấy lại kết nối cơ sở dữ liệu trong trường hợp có
+// Quá nhiều kết nối. [Chỉ MySQL tại thời điểm này]
 $db_retries = 2;
 // The number of milliseconds to wait before retrying.  [MySQL only at the moment]
+// Số mili giây phải đợi trước khi thử lại. [Chỉ MySQL tại thời điểm này]
 $db_delay = 750; // milliseconds
-
-
-// MySQL driver options
-// --------------------
-
-// If you are using MySQL over SSL you may need to set some of the
-// following options.
-
-// The file path to the SSL certificate authority.
-$db_options['mysql']['ssl_ca'] = null;
-
-// The file path to the directory that contains the trusted SSL CA certificates, which are stored in PEM format.
-$db_options['mysql']['ssl_capath'] = null;
-
-// The file path to the SSL certificate.
-$db_options['mysql']['ssl_cert'] = null;
-
-// A list of one or more permissible ciphers to use for SSL encryption, in a format understood by OpenSSL.
-// For example: DHE-RSA-AES256-SHA:AES128-SHA
-$db_options['mysql']['ssl_cipher'] = null;
-
-// The file path to the SSL key.
-$db_options['mysql']['ssl_key'] = null;
-
-// Provides a way to disable verification of the server SSL certificate.
-$db_options['mysql']['ssl_verify_server_cert'] = null;  // boolean
-
-
-// PostgreSQL driver options
-// -------------------------
-
-// There are none at the moment.
 
 
 /*********************************
@@ -144,6 +162,10 @@ $db_options['mysql']['ssl_verify_server_cert'] = null;  // boolean
 // Set to true to enable multisite operation, in which case the settings below are for the
 // home site, identified by the empty string ''.   Other sites have their own supplementary
 // config fies in the sites/<sitename> directory.
+
+// Đặt thành true để bật hoạt động nhiều trang, trong trường hợp đó, các cài đặt bên dưới dành cho
+// trang chủ, được xác định bằng chuỗi trống ''. Các trang web khác có phần bổ sung của riêng họ
+// cấu hình nằm trong thư mục sites / <sitename>.
 $multisite = false;
 $default_site = '';
 
@@ -159,10 +181,24 @@ $mrbs_admin_email = "admin_email@your.org";
 // The company name is mandatory.   It is used in the header and also for email notifications.
 // The company logo, additional information and URL are all optional.
 
-$mrbs_company = "Your Company";   // This line must always be uncommented ($mrbs_company is used in various places)
+// LƯU Ý: có nhiều địa chỉ email hơn trong $ mail_settings bên dưới. Bạn cũng có thể cho
+// địa chỉ email ở định dạng 'Tên đầy đủ <địa chỉ>', ví dụ:
+// $ mrbs_admin_email = 'Hệ thống đặt chỗ <admin_email@your.org>';
+// nếu phần tên có bất kỳ ký tự "đặc biệt" nào trong đó, bạn sẽ cần
+// để đặt tên trong dấu ngoặc kép, ví dụ:
+// $ mrbs_admin_email = '"Bloggs, Joe" <admin_email@your.org>';
+
+// Tên công ty là bắt buộc. Nó được sử dụng trong tiêu đề và cũng cho các thông báo qua email.
+// Logo công ty, thông tin bổ sung và URL đều là tùy chọn.
+$mrbs_company = "Công ty CP Nhựa Thiếu Niên Tiền Phong";   
+// This line must always be uncommented ($mrbs_company is used in various places)
+
+// Dòng này phải luôn được bỏ ghi chú ($ mrbs_company được sử dụng ở nhiều nơi khác nhau)
 
 // Uncomment this next line to use a logo instead of text for your organisation in the header
-//$mrbs_company_logo = "your_logo.gif";    // name of your logo file.   This example assumes it is in the MRBS directory
+// Bỏ ghi chú dòng tiếp theo này để sử dụng biểu trưng thay vì văn bản cho tổ chức của bạn trong tiêu đề
+$mrbs_company_logo = "https://nhuatienphong.vn/main/imgs/ntp/logo2.png";    
+// name of your logo file.   This example assumes it is in the MRBS directory
 
 // Uncomment this next line for supplementary information after your company name or logo.
 // This can contain HTML, for example if you want to include a link.
@@ -176,6 +212,19 @@ $mrbs_company = "Your Company";   // This line must always be uncommented ($mrbs
 // your MRBS root directory, as seen by the users. For example:
 // $url_base =  "http://example.com/mrbs";
 
+// tên tệp biểu trưng của bạn. Ví dụ này giả sử nó nằm trong thư mục MRBS
+
+// Bỏ ghi chú dòng tiếp theo này để biết thông tin bổ sung sau tên hoặc logo công ty của bạn.
+// Điều này có thể chứa HTML, chẳng hạn như nếu bạn muốn bao gồm một liên kết.
+// $ mrbs_company_more_info = "Bạn có thể thêm thông tin ở đây"; // ví dụ. "Bộ phận XYZ"
+
+// Bỏ ghi chú dòng tiếp theo này để có liên kết đến tổ chức của bạn trong tiêu đề
+// $ mrbs_company_url = "http://www.your_organisation.com/";
+
+// Điều này là để khắc phục sự cố URL khi sử dụng proxy trong môi trường.
+// Nếu các liên kết bên trong MRBS hoặc trong thông báo qua email xuất hiện bị hỏng, hãy chỉ định tại đây URL của
+// thư mục gốc MRBS của bạn, như người dùng đã nhìn thấy. Ví dụ:
+// $ url_base = "http://example.com/mrbs";
 
 /*******************
  * Themes
@@ -201,12 +250,30 @@ $mrbs_company = "Your Company";   // This line must always be uncommented ($mrbs
 // "default"        Default MRBS theme
 // "classic126"     Same colour scheme as MRBS 1.2.6
 
+// Chọn chủ đề cho MRBS. Chủ đề kiểm soát hai khía cạnh của giao diện:
+// (a) kiểu dáng: màu sắc, kích thước và phông chữ được thay đổi phổ biến nhất đã được
+// được trích xuất từ ​​tệp CSS chính và đưa vào tệp styles.inc phù hợp
+// thư mục trong thư mục Chủ đề. Nếu bạn muốn thay đổi bảng màu, bạn nên
+// có thể làm điều đó bằng cách thay đổi các giá trị trong tệp chủ đề. Thay đổi kiểu dáng nâng cao hơn
+// có thể được thực hiện bằng cách thay đổi các quy tắc trong tệp CSS.
+// (b) the header: tệp header.inc chứa hàm được sử dụng để tạo tiêu đề.
+// Điều này cho phép các tổ chức cài đặt các chức năng tiêu đề của riêng họ một cách khá dễ dàng, trong trường hợp
+// không thể thay đổi giao diện công ty mong muốn bằng cách sử dụng CSS và đánh dấu
+// chính nó cần được thay đổi.
+//
+// MRBS sẽ tìm kiếm các tệp "styles.inc" và "header.inc" trong thư mục Themes / $ theme và
+// nếu không tìm thấy chúng sẽ sử dụng các tệp trong Chủ đề / default. Thư mục chủ đề có thể chứa
+// tệp styles.inc thay thế hoặc tệp header.inc thay thế hoặc cả hai.
+
+// Các tùy chọn có sẵn là:
 $theme = "default";
 
 // Use the $custom_css_url to override the standard MRBS CSS.
+// Sử dụng $ custom_css_url để ghi đè CSS MRBS chuẩn.
 //$custom_css_url = 'css/custom.css';
 
 // Use the $custom_js_url to add your own JavaScript.
+// Sử dụng $ custom_js_url để thêm JavaScript của riêng bạn.
 //$custom_js_url = 'js/custom.js';
 
 
@@ -233,12 +300,26 @@ $theme = "default";
 // areas: this is done by editing the settings for an area using a web browser by
 // following the "Rooms" link in MRBS.
 
+// Không thể hoán đổi giữa hai tùy chọn này sau khi đặt chỗ có
+// đã được tạo và có các mục có ý nghĩa. Điều này là do sự khác biệt
+// theo cách dữ liệu được lưu trữ.
+
+// Tuy nhiên, có thể cấu hình hệ thống để một số khu vực hoạt động
+// chế độ "thời gian" và các chế độ khác ở chế độ "thời gian". Do đó, biến cấu hình
+// xác định cài đặt mặc định cho các khu vực mới xuất hiện cùng với
+// các biến có thể được đặt trên cơ sở từng vùng trong tệp areadefaults.inc.php.
+// Điều này được thực hiện để thu hút sự chú ý đến thực tế rằng chúng là cài đặt mặc định cho
+// khu vực chỉ và để tránh thất vọng khi cố gắng thay đổi cài đặt cho
+// khu vực: điều này được thực hiện bằng cách chỉnh sửa cài đặt cho một khu vực bằng trình duyệt web bằng cách
+// theo liên kết "Phòng" trong MRBS.
 
 // TIMES SETTINGS
 // --------------
 
 // The times settings can all be configured on a per-area basis, so these variables
 // appear in the areadefaults.inc.php file.
+// Tất cả các cài đặt thời gian đều có thể được định cấu hình trên cơ sở từng khu vực, vì vậy các biến này
+// xuất hiện trong tệp areadefaults.inc.php.
 
 
 // PERIODS SETTINGS
@@ -246,7 +327,8 @@ $theme = "default";
 
 // The "Periods" settings are used only in areas where the mode has
 // been set to "Periods".
-
+// Cài đặt "Khoảng thời gian" chỉ được sử dụng trong các khu vực mà chế độ có
+// được đặt thành "Khoảng thời gian".
 
 /******************
  * Booking policies
@@ -254,28 +336,37 @@ $theme = "default";
 
 // Most booking policies can be configured on a per-area basis, so these variables
 // appear in the areadefaults.inc.php file.
+// Hầu hết các chính sách đặt phòng đều có thể được định cấu hình trên cơ sở từng khu vực, vì vậy các biến này
+// xuất hiện trong tệp areadefaults.inc.php.
 
 // The settings below are global policy settings
-
+// Cài đặt bên dưới là cài đặt chính sách chung
 // Set the maximum *number* of bookings that can be made by any one user, in an interval,
 // which can be a day, week, month or year, or else in the future.  (A week is defined
 // by the $weekstarts setting).   These are global settings, but you can additionally
 // configure per area settings.   This would allow you to set policies such as allowing
 // a maximum of 10 bookings per month in total with a maximum of 1 per day in Area A.
+
+// Đặt * số lượng đặt trước tối đa * có thể được thực hiện bởi bất kỳ người dùng nào, trong một khoảng thời gian,
+// có thể là ngày, tuần, tháng, năm hoặc những thứ khác trong tương lai. (Một tuần được xác định
+// theo cài đặt $ weekstarts). Đây là những cài đặt chung, nhưng bạn cũng có thể
+// cấu hình cài đặt cho từng khu vực. Điều này sẽ cho phép bạn thiết lập các chính sách như cho phép
+// tổng cộng tối đa 10 lượt đặt phòng mỗi tháng với tối đa 1 lượt đặt chỗ mỗi ngày tại Khu vực A.
 $max_per_interval_global_enabled['day']    = false;
 $max_per_interval_global['day'] = 1;      // max 1 bookings per day in total
-
+//tổng cộng tối đa 1 lượt đặt chỗ mỗi ngày
 $max_per_interval_global_enabled['week']   = false;
 $max_per_interval_global['week'] = 5;     // max 5 bookings per week in total
-
+//tổng cộng tối đa 5 lượt đặt trước mỗi tuần
 $max_per_interval_global_enabled['month']  = false;
 $max_per_interval_global['month'] = 10;   // max 10 bookings per month in total
-
+//tổng cộng tối đa 10 lượt đặt trước mỗi tháng
 $max_per_interval_global_enabled['year']   = false;
 $max_per_interval_global['year'] = 50;    // max 50 bookings per year in total
 
 $max_per_interval_global_enabled['future'] = false;
 $max_per_interval_global['future'] = 100; // max 100 bookings in the future in total
+//tổng cộng tối đa 100 lượt đặt trước trong tương lai
 
 // Set the maximum total *length* of bookings that can be made by any one user, in an interval,
 // which can be a day, week, month or year, or else in the future.  (A week is defined
@@ -284,9 +375,16 @@ $max_per_interval_global['future'] = 100; // max 100 bookings in the future in t
 // maximum of 10 hours per week in total with a maximum of 1 hour per day in Area A.
 // These settings only apply to areas in "times" mode.
 
+// Đặt tổng số * thời lượng * đặt trước tối đa có thể được thực hiện bởi bất kỳ người dùng nào, trong một khoảng thời gian,
+// có thể là ngày, tuần, tháng, năm hoặc những thứ khác trong tương lai. (Một tuần được xác định
+// theo cài đặt $ weekstarts). Đây là những cài đặt chung, nhưng bạn cũng có thể
+// cấu hình cài đặt cho từng khu vực. Điều này sẽ cho phép bạn thiết lập các chính sách, chẳng hạn như cho phép
+// tổng cộng tối đa là 10 giờ mỗi tuần với tối đa 1 giờ mỗi ngày trong Khu vực A.
+// Các cài đặt này chỉ áp dụng cho các khu vực ở chế độ "thời gian".
+
 $max_secs_per_interval_global_enabled['day']    = false;
 $max_secs_per_interval_global['day'] = 60*60*2;      // max 2 hours per day in total
-
+//tổng cộng tối đa 2h mỗi ngày
 $max_secs_per_interval_global_enabled['week']   = false;
 $max_secs_per_interval_global['week'] = 60*60*10;    // max 10 hours per week in total
 
@@ -305,6 +403,13 @@ $max_secs_per_interval_global['future'] = 60*60*100; // max 100 hours in the fut
 // using the area settings.   Note that it is possible to have both a relative and absolute
 // date, eg "no more than a week away and in any case not past the end of term".
 // Note that bookings are allowed on the $max_booking_date, but not after it.
+
+// Đặt ngày muộn nhất mà bạn có thể đặt chỗ. Điều này có thể hữu ích nếu bạn
+// muốn đặt một ngày tuyệt đối, ví dụ: ngày kết thúc kỳ hạn, quá thời hạn mà không thể thực hiện đặt chỗ.
+// Nếu bạn muốn đặt một ngày tương đối, ví dụ không quá một tuần nữa, thì bạn có thể thực hiện điều này
+// sử dụng cài đặt khu vực. Lưu ý rằng có thể có cả tương đối và tuyệt đối
+// ngày, ví dụ: "không quá một tuần nữa và trong mọi trường hợp không quá cuối kỳ".
+// Lưu ý rằng đặt chỗ được phép vào $ max_booking_date, nhưng không được phép đặt sau ngày đó.
 $max_booking_date_enabled = false;
 $max_booking_date = "2012-07-23";  // Must be a string in the format "yyyy-mm-dd"
 
@@ -314,20 +419,36 @@ $max_booking_date = "2012-07-23";  // Must be a string in the format "yyyy-mm-dd
 // using the area settings.   Note that it is possible to have both a relative and absolute
 // date, eg "no earlier than a week away and in any case not before the beginning of term".
 // Note that bookings are allowed on the $min_booking_date, but not before it.
-$min_booking_date_enabled = false;
-$min_booking_date = "2012-04-23";  // Must be a string in the format "yyyy-mm-dd"
+
+// Đặt ngày sớm nhất mà bạn có thể đặt chỗ. Điều này có thể hữu ích nếu bạn
+// muốn đặt một ngày tuyệt đối, ví dụ như ngày bắt đầu của kỳ hạn, trước đó không thể thực hiện đặt chỗ.
+// Nếu bạn muốn đặt một ngày tương đối, ví dụ không quá một tuần nữa, thì bạn có thể thực hiện điều này
+// sử dụng cài đặt khu vực. Lưu ý rằng có thể có cả tương đối và tuyệt đối
+// ngày tháng, ví dụ "không sớm hơn một tuần và trong mọi trường hợp không phải trước ngày bắt đầu học kỳ".
+// Lưu ý rằng đặt chỗ được phép vào $ min_booking_date, nhưng không được phép đặt trước.
+$min_booking_date_enabled = true;
+$min_booking_date = date("y-m-d");  // Must be a string in the format "yyyy-mm-dd"
 
 // Set this to true if you want to prevent users editing or deleting approved bookings.
 // Note that this setting only applies if booking approval is in force for the area.
 // If it isn't in force you can prevent bookings being edited or deleted by using the
 // min and max delete ahead settings.
+
+//************************************************************** */
+// Đặt giá trị này thành true nếu bạn muốn ngăn người dùng chỉnh sửa hoặc xóa các đặt chỗ đã được phê duyệt.
+// Lưu ý rằng cài đặt này chỉ áp dụng nếu phê duyệt đặt chỗ có hiệu lực đối với khu vực.
+// Nếu điều đó không có hiệu lực, bạn có thể ngăn việc chỉnh sửa hoặc xóa đặt chỗ bằng cách sử dụng
+// cài đặt trước xóa tối thiểu và tối đa.
 $approved_bookings_cannot_be_changed = false;
 
 // Set this to true if you want to prevent users having a booking for two different rooms
 // at the same time.
+// Đặt giá trị này thành true nếu bạn muốn ngăn người dùng đặt hai phòng khác nhau
+// đồng thời.
 $prevent_simultaneous_bookings = false;
 
 // Set this to true if you want to prevent bookings of a type that is invalid for a room
+// Đặt giá trị này thành true nếu bạn muốn ngăn việc đặt loại phòng không hợp lệ
 $prevent_invalid_types = true;
 
 // The start of the booking day when using periods.  Because MRBS has
@@ -335,6 +456,12 @@ $prevent_invalid_types = true;
 // at the time below when we are enforcing book ahead policies.
 // The setting defines the time of day when bookings open.
 // This should be a string in the format hh:mm using the 24 hour clock.
+
+// Thời điểm bắt đầu của ngày đặt phòng khi sử dụng các khoảng thời gian. Bởi vì MRBS có
+// không có khái niệm về thời điểm các khoảng thời gian thực sự xảy ra, chúng được giả định là bắt đầu
+// tại thời điểm bên dưới khi chúng tôi đang thực thi các chính sách đặt trước.
+// Cài đặt xác định thời gian trong ngày khi đặt chỗ mở.
+// Đây phải là một chuỗi có định dạng hh: mm sử dụng đồng hồ 24 giờ.
 $periods_booking_opens = '00:00';
 
 // When setting max_create_ahead and max_delete_ahead policies, the time interval is normally
@@ -343,14 +470,14 @@ $periods_booking_opens = '00:00';
 // the early part of the booking, or else editing it down to what they actually need later.
 // However this is not very intuitive for users who might expect the measurement to be relative
 // to the start time, in which case this can be achieved by changing this setting to true.
+
+// Khi đặt chính sách max_create_ahead và max_delete_ahead, khoảng thời gian là bình thường
+// được đo đến thời điểm kết thúc đặt phòng. Điều này nhằm ngăn chặn người dùng gian lận hệ thống bằng cách
+// đặt một vị trí rất dài với thời gian bắt đầu chỉ trong giới hạn và sau đó không sử dụng
+// phần đầu của đặt phòng hoặc chỉnh sửa nó thành những gì họ thực sự cần sau đó.
+// Tuy nhiên, điều này không trực quan lắm đối với những người dùng có thể mong đợi phép đo là tương đối
+// đến thời gian bắt đầu, trong trường hợp này có thể đạt được điều này bằng cách thay đổi cài đặt này thành true.
 $measure_max_to_start_time = false;
-
-// By default, bookings cannot be made on days that are designated holidays (see $holidays).
-$prevent_booking_on_holidays = true;
-
-// Set this to true to prevent bookings being made on weekends (see $weekdays).
-$prevent_booking_on_weekends = false;
-
 
 /******************
  * Display settings
@@ -359,22 +486,17 @@ $prevent_booking_on_weekends = false;
 // [These are all variables that control the appearance of pages and could in time
 //  become per-user settings]
 
+// [Đây là tất cả các biến kiểm soát sự xuất hiện của các trang và có thể kịp thời
+// trở thành cài đặt cho mỗi người dùng]
+
 // Start of week: 0 for Sunday, 1 for Monday, etc.
+
+// Đầu tuần: 0 cho Chủ Nhật, 1 cho Thứ Hai, v.v.
 $weekstarts = 0;
 
 // Days of the week that are weekdays
-$weekdays = array(1, 2, 3, 4, 5);
-
-// Set this to true to add styling to weekend days
-$style_weekends = false;
-
-// A two-dimensional array of holidays in yyyy-mm-dd format, indexed first by year, for example
-// $holidays[2022] = array('2022-01-01', '2022-11-24');  // New Year's Day and US Thanksgiving 2022
-// Dates can include ranges in the form 'yyyy-mm-dd..yyyy-mm-dd', eg
-// $holidays[2022] = array('2022-01-01', '2022-07-01..2022-07-31');  // New Year's Day and all of July
-// By default, bookings cannot be made on days that are designated holidays (see $prevent_booking_on_holidays).
-// Holidays are styled differently in the main calendar views.
-$holidays = array();
+// Các ngày trong tuần là các ngày trong tuần
+$weekdays = array(0,1, 2, 3, 4, 5,6);
 
 // Days of the week that should be hidden from display
 // 0 for Sunday, 1 for Monday, etc.
@@ -383,10 +505,21 @@ $holidays = array();
 // By default the hidden days will be removed completely from the main table in the week and month
 // views.   You can alternatively arrange for them to be shown as narrow, greyed-out columns
 // by defining some custom CSS for the .hidden_day class.
+
+// Các ngày trong tuần cần được ẩn khỏi hiển thị
+// 0 cho Chủ Nhật, 1 cho Thứ Hai, v.v.
+// Ví dụ, nếu bạn muốn ẩn các ngày thứ bảy và chủ nhật, hãy đặt $ hidden_days = array (0,6);
+//
+// Theo mặc định, các ngày bị ẩn sẽ bị xóa hoàn toàn khỏi bảng chính trong tuần và tháng
+// lượt xem. Bạn có thể sắp xếp theo cách khác để chúng được hiển thị dưới dạng cột hẹp, màu xám
+// bằng cách xác định một số CSS tùy chỉnh cho lớp .hides_day.
 $hidden_days = array();
 
 // Time format in pages. FALSE to show dates in 12 hour format, TRUE to show them
 // in 24 hour format
+
+// Định dạng thời gian trong các trang. FALSE để hiển thị ngày ở định dạng 12 giờ, TRUE để hiển thị chúng
+// ở định dạng 24 giờ
 $twentyfourhour_format = true;
 
 // Formats used for dates and times.   For formatting options
@@ -396,12 +529,20 @@ $twentyfourhour_format = true;
 // the strftime formats into an equivalent pattern for use with IntlDateFormatter.  The following
 // strftime formats do not have an equivalent and are not supported: %u, %w, %U, %V, %W, %C,
 // %g, $G, %l and %s.
-$strftime_format['date']               = "%A %d %B %Y";  // Used in Day view
+
+// Các định dạng được sử dụng cho ngày và giờ. Đối với các tùy chọn định dạng
+// xem http://php.net/manual/ Chức năng.strftime.php. Lưu ý rằng MRBS sẽ tự động
+// chuyển đổi các định dạng sau không được hỗ trợ trên Windows:% e,% l,% P và% R.
+// MRBS sẽ sử dụng IntlDateFormatter nếu nó tồn tại ưu tiên strftime () và thử chuyển đổi
+// định dạng strftime thành một mẫu tương đương để sử dụng với IntlDateFormatter. Sau
+// định dạng strftime không có định dạng tương đương và không được hỗ trợ:% u,% w,% U,% V,% W,% C,
+//% g, $ G,% l và% s.
+$strftime_format['date']               = "%A  %B %Y";  // Used in Day view
 $strftime_format['date_short']         = "%x";           // Used in Search results
 $strftime_format['dayname']            = "%A";           // Used in Month view
 $strftime_format['dayname_edit']       = "%a";           // Used in edit_entry form
 $strftime_format['weekview_date']      = "%b %e";        // Used in the table header in Week view
-$strftime_format['weekview_headers']   = "%a<br>%b %e";  // Used in the table header in Week view (all rooms)
+$strftime_format['weekview_headers']   = "%a<br>%e. %B";  // Used in the table header in Week view (all rooms)
 $strftime_format['monthview_headers']  = "%a<br>%e";     // Used in the table header in Month view (all rooms)
 $strftime_format['minical_monthname']  = "%B %Y";        // Used in mini calendar heading
 $strftime_format['minical_dayname']    = "%a";           // Used in mini calendar heading
@@ -414,6 +555,9 @@ $strftime_format['datetime12']         = "%I:%M%p - %A %d %B %Y";  // 12 hour cl
 $strftime_format['datetime24']         = "%H:%M - %A %d %B %Y";    // 24 hour clock
 // If you prefer dates as "10 Jul" instead of "Jul 10" ($dateformat = true in
 // MRBS 1.4.5 and earlier) then use
+// Nếu bạn thích ngày là "10 tháng 7" thay vì "10 tháng 7" ($ dateformat = true in
+// MRBS 1.4.5 trở về trước) thì sử dụng
+
 // $strftime_format['daymonth']        = "%d %b";
 $strftime_format['daymonth']           = "%b %d";
 
@@ -432,6 +576,7 @@ $strftime_format['view_week_start_m']  = "%e %B ";     // just the year the same
 $strftime_format['view_week_start_y']  = "%e %B %Y ";  // years (and months) different
 
 // Whether or not to display the timezone
+// Có hiển thị múi giờ hay không
 $display_timezone = false;
 
 // Results per page for searching:
@@ -440,80 +585,130 @@ $search["count"] = 20;
 // Page refresh time (in seconds). Set to 0 to disable.
 // (Note that if MRBS detects that a client is on a metered network
 // connection it will disable page refresh for that client.)
+
+// Thời gian làm mới trang (tính bằng giây). Đặt thành 0 để tắt.
+// (Lưu ý rằng nếu MRBS phát hiện thấy một máy khách đang ở trên một mạng được đo lường
+// kết nối nó sẽ vô hiệu hóa tính năng làm mới trang cho ứng dụng khách đó.)
 $refresh_rate = 0;
 
 // Refresh rate (in seconds) for Ajax checking of valid bookings on the edit_entry page
 // Set to 0 to disable.
+// Tốc độ làm mới (tính bằng giây) để Ajax kiểm tra các đặt phòng hợp lệ trên trang edit_entry
+// Đặt thành 0 để tắt.
 $ajax_refresh_rate = 10;
 
 // Refresh rate for page pre-fetches in the calendar views.   MRBS tries to improve
 // performance of navigation between pages in the calendar view by pre-fetching some
 // pages.   This setting determines how often (in seconds) the pre-fetches should be
 // refreshed in order to keep them from getting out of date.  Set to 0 to disable.
-$prefetch_refresh_rate = 30;
 
-// Refresh rate (in seconds) when in kiosk mode
-$kiosk_refresh_rate = 0; // Temporarily disabled
+// Tốc độ làm mới cho các lần tìm nạp trước trang trong chế độ xem lịch. MRBS cố gắng cải thiện
+// hiệu suất điều hướng giữa các trang trong chế độ xem lịch bằng cách tìm nạp trước một số
+// trang. Cài đặt này xác định tần suất (tính bằng giây) của các lần tìm nạp trước
+// được làm mới để giữ cho chúng không bị lỗi thời. Đặt thành 0 để tắt.
+$prefetch_refresh_rate = 30;
 
 // Entries in monthly view can be shown as start/end slot, brief description or
 // both. Set to "description" for brief description, "slot" for time slot and
 // "both" for both. Default is "both", but 6 entries per day are shown instead
 // of 12.
+
+// Các mục nhập trong chế độ xem hàng tháng có thể được hiển thị dưới dạng vị trí bắt đầu / kết thúc, mô tả ngắn gọn hoặc
+// cả hai. Đặt thành "mô tả" cho mô tả ngắn gọn, "thời điểm" cho khoảng thời gian và
+// "cả hai" cho cả hai. Mặc định là "cả hai", nhưng 6 mục nhập mỗi ngày được hiển thị thay vì 12 mục.
 $monthly_view_entries_details = "both";
 
 // To show ISO week numbers, set this to true
+// Để hiển thị số tuần ISO, hãy đặt giá trị này thành true
 $view_week_number = false;
 
 // Whether or not the mini-calendars are displayed.  (Note that mini-calendars are only
 // displayed anyway if the window is wide enough.)
+
+// Lịch mini có được hiển thị hay không. (Lưu ý rằng lịch mini chỉ hiển thị nếu cửa sổ đủ rộng.)
 $display_mincals = true;
 
 // If the window is too narrow the mini-calendars are normally not displayed.  However by
 // setting the following variable to true they will be displayed above the main calendar,
 // provided the window is high enough.
+
+// Nếu cửa sổ quá hẹp, các lịch nhỏ thường không được hiển thị. Tuy nhiên bởi
+// đặt biến sau thành true, chúng sẽ được hiển thị phía trên lịch chính,
+// miễn là cửa sổ đủ cao.
 $display_mincals_above = false;
 
 // To display week numbers in the mini-calendars, set this to true. The week
 // numbers are only accurate if you set $weekstarts to 1, i.e. set the
 // start of the week to Monday
+
+// Để hiển thị số tuần trong lịch nhỏ, hãy đặt giá trị này thành true. Tuần
+// số chỉ chính xác nếu bạn đặt $ weekstarts thành 1, tức là đặt
+// đầu tuần đến thứ hai
 $mincals_week_numbers = false;
 
 // To display the endtime in the slot description, eg '09:00-09:30' instead of '09:00', set
 // this to true.
+
+// Để hiển thị thời gian kết thúc trong mô tả vị trí, ví dụ: '09: 00-09: 30 'thay vì '09: 00', hãy đặt
+// điều này thành true.
 $show_slot_endtime = false;
 
 // To display the row labels (times, rooms or days) on the right hand side as well as the
 // left hand side in the day and week views, set to true;
 // (was called $times_right_side in earlier versions of MRBS)
+
+// Để hiển thị các nhãn hàng (thời gian, phòng hoặc ngày) ở phía bên phải cũng như
+// bên trái trong chế độ xem ngày và tuần, được đặt thành true;
+// (được gọi là $ times_right_side trong các phiên bản MRBS trước đó)
 $row_labels_both_sides = false;
 
 // To display the column headers (times, rooms or days) on the bottom of the table as
 // well as the top in the day and week views, set to true;
+
+// Để hiển thị các tiêu đề cột (thời gian, phòng hoặc ngày) ở cuối bảng dưới dạng
+// cũng như hàng đầu trong chế độ xem ngày và tuần, được đặt thành true;
 $column_labels_both_ends = false;
 
-// Show a line in the day and week views corresponding to the current time(
-$show_timeline = true;  // normal mode
-$show_timeline_kiosk = false;  // kiosk mode
+// Show a line in the day and week views corresponding to the current time
+
+// Hiển thị một dòng trong chế độ xem ngày và tuần tương ứng với thời gian hiện tại
+$show_timeline = true;
 
 // For bookings that allow registration, show the number of people that have
 // registered and, if there is one, the registration limit.  This will typically
 // be appended to the description in the calendar view, eg "Lecture [12/40]".
 // The way the registration level is presented can be changed with a
+
+// Đối với các đặt chỗ cho phép đăng ký, hãy hiển thị số người có
+// đã đăng ký và nếu có thì giới hạn đăng ký. Điều này thường sẽ
+// được thêm vào mô tả trong chế độ xem lịch, ví dụ "Bài giảng [12/40]".
+// Cách trình bày mức đăng ký có thể được thay đổi bằng
 // $vocab_override config setting.
 $show_registration_level = true;
 
 // Define default starting view (month, week or day)
 // Default is day
-$default_view = "day";
+
+// Xác định chế độ xem bắt đầu mặc định (tháng, tuần hoặc ngày)
+// Mặc định là ngày
+$default_view = "month";
 
 // The default setting for the week and month views: whether to view all the
 // rooms (true) or not (false).
+
+// Cài đặt mặc định cho chế độ xem và tháng: có chế độ xem tất cả
+// phòng (true) hoặc không (false).
 $default_view_all = true;
 
 // Define default room to start with (used by index.php)
 // Room numbers can be determined by looking at the Edit or Delete URL for a
 // room on the admin page.
 // Default is 0
+
+// Xác định phòng mặc định để bắt đầu (được sử dụng bởi index.php)
+// Số phòng có thể được xác định bằng cách xem URL Chỉnh sửa hoặc Xóa để tìm
+// phòng trên trang quản trị.
+// Mặc định là 0
 $default_room = 0;
 
 // Define clipping behaviour for the cells in the day and week views.
@@ -521,27 +716,50 @@ $default_room = 0;
 // gives a table where all the rows have the same height, regardless of content.
 // Alternatively set to false if you want the cells to expand to fit the content.
 // (false not supported in IE6 and IE7 due to their incomplete CSS support)
+
+// Xác định hành vi cắt cho các ô trong chế độ xem ngày và tuần.
+// Đặt thành true nếu bạn muốn cắt bớt các ô trong chế độ xem ngày và tuần. Đây
+// đưa ra một bảng trong đó tất cả các hàng có cùng chiều cao, bất kể nội dung.
+// Hoặc đặt thành false nếu bạn muốn các ô mở rộng để phù hợp với nội dung.
+// (false không được hỗ trợ trong IE6 và IE7 do hỗ trợ CSS không đầy đủ của chúng)
 $clipped = true;
 
 // Define clipping behaviour for the cells in the month view.
 // Set to true if you want all entries to have the same height. The
 // short description may be clipped in this case. If set to false,
 // each booking entry will be large enough to display all information.
+
+// Xác định hành vi cắt cho các ô trong chế độ xem tháng.
+// Đặt thành true nếu bạn muốn tất cả các mục nhập có cùng chiều cao. Các
+// mô tả ngắn có thể được cắt bớt trong trường hợp này. Nếu được đặt thành false,
+// mỗi mục đặt chỗ sẽ đủ lớn để hiển thị tất cả thông tin.
 $clipped_month = true;
 
 // Set to true if you want the cells in the month view to scroll if there are too
 // many bookings to display; set to false if you want the table cell to expand to
 // accommodate the bookings.
+
+// Đặt thành true nếu bạn muốn các ô trong chế độ xem tháng cuộn nếu có
+// nhiều đặt chỗ để hiển thị; đặt thành false nếu bạn muốn ô trong bảng mở rộng thành
+// điều chỉnh các đặt chỗ.
 $month_cell_scrolling = true;
 
 // Define the maximum length of a string that can be displayed in an admin table cell
 // (eg the rooms and users lists) before it is truncated.  (This is necessary because
 // you don't want a cell to contain for example a 2 kbyte text string, which could happen
 // with user defined fields).
+
+// Xác định độ dài tối đa của một chuỗi có thể được hiển thị trong ô bảng quản trị
+// (ví dụ: phòng và danh sách người dùng) trước khi nó bị cắt bớt. (Điều này là cần thiết vì
+// bạn không muốn một ô chứa chuỗi văn bản 2 kbyte, ví dụ, điều này có thể xảy ra
+// với các trường do người dùng định nghĩa).
 $max_content_length = 20;  // characters
 
 // The maximum length of a database field for which a text input can be used on a form
 // (eg when editing a user or room).  If longer than this a text area will be used.
+
+// Độ dài tối đa của trường cơ sở dữ liệu mà đầu vào văn bản có thể được sử dụng trên biểu mẫu
+// (ví dụ: khi chỉnh sửa người dùng hoặc phòng). Nếu dài hơn mức này, một vùng văn bản sẽ được sử dụng.
 $text_input_max = 70;  // characters
 
 // For inputs that have autocomplete options, eg the area and room match inputs on
@@ -557,10 +775,27 @@ $text_input_max = 70;  // characters
 // [Note: this variable is only applicable to older browsers that do not support the
 // <datalist> element and instead fall back to a JavaScript emulation.   Browsers that
 // support <datalist> present the options in a scrollable select box]
+
+// Đối với các đầu vào có tùy chọn tự động hoàn thành, ví dụ: đầu vào đối sánh khu vực và phòng được bật
+// trang báo cáo, chúng tôi có thể xác định số lượng ký tự cần được nhập trước
+// các tùy chọn được hiển thị. Điều này cho phép chúng tôi ngăn chặn một danh sách dài các tùy chọn
+// đang được trình bày. Chúng tôi xác định các điểm ngắt trong một mảng. Ví dụ: nếu chúng tôi đặt
+// $ autocomplete_length_breaks = array (25, 250, 2500); điều này có nghĩa là nếu số lượng tùy chọn
+// nhỏ hơn 25 thì chúng sẽ được hiển thị khi nhập 0 ký tự, tức là đầu vào
+// nhận tiêu điểm. Nếu số lượng tùy chọn nhỏ hơn 250 thì chúng sẽ được hiển thị
+// khi 1 ký tự được nhập, v.v. Mảng có thể dài bao nhiêu tùy thích. Nếu nó
+// trống thì các tùy chọn được hiển thị khi nhập 0 ký tự.
+
+// [Lưu ý: biến này chỉ áp dụng cho các trình duyệt cũ hơn không hỗ trợ
+// phần tử <datalist> và thay vào đó trở lại mô phỏng JavaScript. Các trình duyệt
+// support <datalist> trình bày các tùy chọn trong hộp chọn có thể cuộn]
 $autocomplete_length_breaks = array(25, 250, 2500);
 
 // The default orientation for PDF output
 // Options: 'portrait' or 'landscape'
+
+// Hướng mặc định cho đầu ra PDF
+// Tùy chọn: 'dọc' hoặc 'ngang'
 $pdf_default_orientation = 'portrait';
 
 // The default paper size for PDF output
@@ -568,6 +803,7 @@ $pdf_default_orientation = 'portrait';
 $pdf_default_paper = 'A4';
 
 // Whether to sort users by their last names or not
+// Có sắp xếp người dùng theo họ của họ hay không
 $sort_users_by_last_name = false;
 
 /************************
@@ -575,36 +811,24 @@ $sort_users_by_last_name = false;
  ************************/
 
 // Maximum repeating entries (max needed +1):
+//Các mục nhập lặp lại tối đa (tối đa cần +1):
 $max_rep_entrys = 365 + 1;
 
 // Default report span in days:
+// Khoảng báo cáo mặc định tính bằng ngày:
 $default_report_days = 60;
-
-// Whether to include the name of the person who made the registration, if different, in
-// the list of registrants in reports
-$include_registered_by = true;
-// Whether to include the registrant's username as well as displayname in the list of
-// registrants in reports.
-$include_registrant_username = false;
 
 $show_plus_link = false;   // Change to true to always show the (+) link as in
                            // MRBS 1.1.
 
-// Determines whether MRBS should get all the display names at once when
-// asked to get a single display name.  MRBS converts usernames to display
-// names when displaying bookings and in reports.  This can be an expensive
-// operation when using an external authentication type, eg 'db_ext', 'ldap'
-// or 'wix', and it is usually much faster to retrieve all the names at once
-// when getting the first name, especially when producing large reports.  However
-// sometimes retrieving all the names can take a very long time, eg when
-// working with a very large LDAP directory, and it can be better just to retrieve
-// each name when needed.
-$get_display_names_all_at_once = true;
 
 // PRIVATE BOOKINGS SETTINGS
+// Khoảng báo cáo mặc định tính bằng ngày:...
 
 // Note:  some settings for private bookings can be set on a per-area basis and
 // so appear in the areadefaults.inc.php file
+// Lưu ý: một số cài đặt cho đặt chỗ riêng có thể được đặt trên cơ sở từng khu vực và
+// xuất hiện trong tệp areadefaults.inc.php
 
 // Choose which fields should be private by setting
 // $is_private_field['tablename.columnname'] = true
@@ -612,6 +836,13 @@ $get_display_names_all_at_once = true;
 // including custom fields, but with the exception of the following entry table fields:
 // start_time, end_time, entry_type, repeat_id, room_id, timestamp, type, status,
 // reminded, info_time, info_user, info_text.
+
+// Chọn trường nào nên ở chế độ riêng tư bằng cách cài đặt
+// $ is_private_field ['tablename.columnname'] = true
+// Hiện tại, chỉ các trường trong bảng mục nhập và người dùng mới có thể được đánh dấu là riêng tư,
+// bao gồm các trường tùy chỉnh, nhưng ngoại trừ các trường của bảng mục nhập sau:
+// start_time, end_time, entry_type, repeat_id, room_id, timestamp, type, status,
+// đã nhắc nhở, info_time, info_user, info_text.
 $is_private_field['entry.name'] = true;
 $is_private_field['entry.description'] = true;
 $is_private_field['entry.create_by'] = true;
@@ -630,6 +861,19 @@ $is_private_field['entry.modified_by'] = true;
 
 // Interval before reminders can be issued (in seconds).   Only
 // working days (see below) are included in the calculation
+
+// CÀI ĐẶT ĐỂ PHÊ DUYỆT ĐẶT CHỖ - MỖI VÙNG
+
+// Tất cả các cài đặt này đều có thể được định cấu hình trên cơ sở từng khu vực, vì vậy các biến này
+// xuất hiện trong tệp areadefaults.inc.php.
+
+
+// CÀI ĐẶT ĐỂ PHÊ DUYỆT ĐẶT CHỖ - TOÀN CẦU
+
+// Các cài đặt này trên toàn hệ thống và kiểm soát hành vi trong tất cả các lĩnh vực.
+
+// Khoảng thời gian trước khi có thể đưa ra lời nhắc (tính bằng giây). Chỉ có
+// ngày làm việc (xem bên dưới) được bao gồm trong tính toán
 $reminder_interval = 60*60*24*2;  // 2 working days
 
 // Days of the week that are working days (Sunday = 0, etc.)
@@ -653,15 +897,26 @@ $working_days = array(1,2,3,4,5);  // Mon-Fri
 // two-dimensional array.   The first index specifies the form field in the
 // format tablename.columnname.    For example to restrict the name of a booking
 // to 'Physics', 'Chemistry' or 'Biology' uncomment the line below.
+// Có thể giới hạn một số giá trị biểu mẫu được chọn từ một drop-
+// xuống hộp chọn, thay vì cho phép nhập biểu mẫu tự do. Điều này được thực hiện bởi
+// đưa các tùy chọn được phép vào một mảng như một phần của $ select_options
+// mảng hai chiều. Chỉ mục đầu tiên chỉ định trường biểu mẫu trong
+// định dạng tablename.columnname. Ví dụ: để hạn chế tên của một đặt chỗ
+// thành 'Vật lý', 'Hóa học' hoặc 'Sinh học' bỏ ghi chú dòng bên dưới.
 
 //$select_options['entry.name'] = array('Physics', 'Chemistry', 'Biology');
 
 // At the moment $select_options is only supported as follows:
 //     - Entry table: name, description and custom fields
 //     - Users table: custom fields
+// Hiện tại $ select_options chỉ được hỗ trợ như sau:
+// - Bảng mục: tên, mô tả và các trường tùy chỉnh
+// - Bảng người dùng: các trường tùy chỉnh
 
 // For custom fields only (will be extended later) it is also possible to use
 // an associative array for $select_options, for example
+// Chỉ dành cho các trường tùy chỉnh (sẽ được mở rộng sau này), bạn cũng có thể sử dụng
+// một mảng kết hợp cho $ select_options chẳng hạn
 
 //$select_options['entry.catering'] = array('c' => 'Coffee',
 //                                          's' => 'Sandwiches',
@@ -673,8 +928,15 @@ $working_days = array(1,2,3,4,5);  // Mon-Fri
 // to 'Coffee, Tea and Biscuits', without having to alter the database.   It can also
 // be useful if the database table is being shared with another application.
 // MRBS will auto-detect whether the array is associative.
+// Trong trường hợp này, khóa (ví dụ: 'c') được lưu trữ trong cơ sở dữ liệu, nhưng giá trị
+// (ví dụ: 'Cà phê') được hiển thị và có thể được tìm kiếm bằng Tìm kiếm và Báo cáo.
+// Điều này cho phép bạn thay đổi các giá trị được hiển thị, ví dụ như thay đổi 'Cà phê'
+// tới 'Coffee, Tea and Biscuits', mà không cần phải thay đổi cơ sở dữ liệu. Nó cũng có thể
+// hữu ích nếu bảng cơ sở dữ liệu đang được chia sẻ với một ứng dụng khác.
+// MRBS sẽ tự động phát hiện xem mảng có liên kết hay không.
 //
 // Note that an array such as
+// Lưu ý rằng một mảng chẳng hạn như
 //
 // $select_options['entry.catering'] = array('2' => 'Coffee',
 //                                           '4' => 'Sandwiches',
@@ -684,9 +946,15 @@ $working_days = array(1,2,3,4,5);  // Mon-Fri
 // That's because (a) strictly speaking PHP does not distinguish between indexed
 // and associative arrays and (b) PHP will cast any string key that looks like a
 // valid integer into an integer.
+// sẽ được coi là một mảng được lập chỉ mục đơn giản hơn là một mảng kết hợp.
+// Đó là bởi vì (a) nói đúng ra PHP không phân biệt giữa được lập chỉ mục
+// và các mảng kết hợp và (b) PHP sẽ ép bất kỳ khóa chuỗi nào trông giống như
+// số nguyên hợp lệ thành số nguyên.
 //
 // If you want to make the select field a mandatory field (see below) then include
 // an empty string as one of the values, eg
+// Nếu bạn muốn đặt trường chọn thành trường bắt buộc (xem bên dưới) thì hãy bao gồm
+// một chuỗi rỗng là một trong các giá trị, ví dụ:
 //
 //$select_options['entry.catering'] = array(''  => 'Please select one option',
 //                                          'c' => 'Coffee',
@@ -701,13 +969,24 @@ $datalist_options = array();
 // an HTML5 <datalist> element in browsers that support it, falling back to a
 // JavaScript emulation in browsers that don't - except for IE6 and below where
 // an ordinary text input field is presented).
+// Thay vì giới hạn người dùng trong một tập hợp các tùy chọn cố định bằng cách sử dụng $ select_options,
+// bạn có thể cung cấp danh sách các tùy chọn sẽ được sử dụng làm đề xuất, nhưng
+// người dùng cũng sẽ có thể nhập đầu vào của riêng họ. (MRBS trình bày những điều này bằng cách sử dụng
+// một phần tử <datalist> HTML5 trong các trình duyệt hỗ trợ nó, trở lại
+// Mô phỏng JavaScript trong các trình duyệt không - ngoại trừ IE6 trở xuống, nơi
+// một trường nhập văn bản thông thường được hiển thị).
 //
 // As with $select_options, the array can be either a simple indexed array or an
 // associative array, eg array('AL' => 'Alabama', 'AK' => 'Alaska', etc.).   However
 // some users might find an associative array confusing as the key is entered in the input
 // field when the corresponding value is selected.
+// Như với $ select_options, mảng có thể là một mảng được lập chỉ mục đơn giản hoặc một
+// mảng kết hợp, ví dụ mảng ('AL' => 'Alabama', 'AK' => 'Alaska', v.v.). Tuy nhiên
+// một số người dùng có thể thấy một mảng kết hợp khó hiểu vì khóa được nhập vào đầu vào
+// trường khi giá trị tương ứng được chọn.
 //
 // At the moment $datalist_options is only supported for the same fields as
+// Hiện tại $ datalist_options chỉ được hỗ trợ cho các trường giống như
 // $select_options (see above for details)
 
 
@@ -715,6 +994,9 @@ $is_mandatory_field = array();
 // You can define custom entry fields and some of the standard fields (description
 // and type) to be mandatory by setting items in the array $is_mandatory_field.
 // (Note that making a checkbox field mandatory means that the box must be checked.)
+// Bạn có thể xác định các trường mục nhập tùy chỉnh và một số trường tiêu chuẩn (mô tả
+// và kiểu) là bắt buộc bằng cách đặt các mục trong mảng $ is_mandatory_field.
+// (Lưu ý rằng việc tạo trường hộp kiểm là bắt buộc có nghĩa là hộp đó phải được chọn.)
 // For example:
 
 // $is_mandatory_field['entry.type'] = true;
@@ -726,41 +1008,46 @@ $is_mandatory_field['users.display_name'] = true;
 // the pattern attribute.  At the moment this is limited to custom fields in the
 // users table.  For example the following could be used to ensure a valid US ZIP
 // code (you might want to have a better regex - this is just for illustration):
+// Bạn cũng có thể nhập các biểu thức chính quy để xác thực đầu vào trường văn bản bằng cách sử dụng
+// thuộc tính mẫu. Hiện tại, điều này được giới hạn cho các trường tùy chỉnh trong
+// bảng người dùng. Ví dụ, bạn có thể sử dụng phần sau để đảm bảo mã ZIP của Hoa Kỳ hợp lệ
+// code (bạn có thể muốn có một regex tốt hơn - cái này chỉ để minh họa):
 
 // $pattern['users.zip_code'] = "^[0-9]{5}(?:-[0-9]{4})?$";
 
 // You would probably also want to enter a custom error message by using
 // $vocab_override, with the tag consisting of "table.field.oninvalid" eg
-
-// $vocab_override['en']['users.zip_code.oninvalid'] = "Please enter a valid ZIP code, eg '12345' or '12345-6789'";
-
-// You can add a placeholder to text input fields in the entry form by using
-// $vocab_override, with the tag consisting of "table.field.placeholder" eg
-
-// $vocab_override['en']['entry.description.placeholder'] = "This is the placeholder text";
+// Bạn cũng có thể muốn nhập thông báo lỗi tùy chỉnh bằng cách sử dụng
+// $ vocab_override, với thẻ bao gồm "table.field.oninvalid", ví dụ:
+// $vocab_override['users.zip_code.oninvalid']['en'] = "Please enter a valid ZIP code, eg '12345' or '12345-6789'";
 
 
 // Set this to false if you do not want to have the ability to create events for which
 // other people can register.
-$enable_registration = true;
-// By default only admins are allowed to create registration bookings.  If you want
-// ordinary users to be able to do so as well then you need to set this to true.
-// However note that you will have to set $enable_registration to true as well.
-$enable_registration_users = false;
+// Đặt giá trị này thành false nếu bạn không muốn có khả năng tạo các sự kiện
+// người khác có thể đăng ký.
+$enable_registration = false;
 
 // The default setting for new entries
+// Cài đặt mặc định cho các mục nhập mới
 $allow_registration_default = false;
 // Whether a limit on the number of registrants is set by default
+// Giới hạn về số lượng người đăng ký có được đặt theo mặc định hay không
 $registrant_limit_enabled_default = true;
 // The default maximum number of registrations allowed
+// Số lượng đăng ký tối đa mặc định được phép
 $registrant_limit_default = 1;
 // Whether the registration opens time is enabled by default
+// Thời gian mở đăng ký có được bật theo mặc định hay không
 $registration_opens_enabled_default = false;
 // The default time (in seconds) in advance of the start time when registration opens
+// Thời gian mặc định (tính bằng giây) trước thời gian bắt đầu khi đăng ký mở
 $registration_opens_default = 60*60*24*14; // 2 weeks
 // Whether the registration closes time is enabled by default
+// Thời gian đóng đăng ký có được bật theo mặc định hay không
 $registration_closes_enabled_default = false;
 // The default time (in seconds) in advance of the start time when registration closes
+// Thời gian mặc định (tính bằng giây) trước thời gian bắt đầu khi đăng ký đóng
 $registration_closes_default = 0;
 
 
@@ -768,6 +1055,10 @@ $registration_closes_default = 0;
 // on the edit_entry form to be checked by default.  (This will mean that
 // if you make a repeat booking and some of the repeat dates are already
 // booked, MRBS will just skip past those).
+// Đặt $ skip_default thành true nếu bạn muốn hộp "Bỏ qua xung đột trước đây"
+// trên biểu mẫu edit_entry sẽ được kiểm tra theo mặc định. (Điều này có nghĩa là
+// nếu bạn đặt phòng lặp lại và một số ngày lặp lại đã
+// đã đặt trước, MRBS sẽ chỉ bỏ qua những người đó).
 $skip_default = false;
 
 // $edit_entry_field_order can be used to change the order of fields in the
@@ -783,16 +1074,38 @@ $skip_default = false;
 // 'end_time', 'room_id', 'type', 'confirmation_status', 'privacy_status',
 // plus any custom fields you may have defined. Fields that are not
 // mentioned in the array are appended at the end, in their usual order.
+
+// $ edit_entry_field_order có thể được sử dụng để thay đổi thứ tự của các trường trong
+// trang edit_entry. Điều này rất hữu ích để chèn các trường tùy chỉnh ở một nơi khác ngoài
+// kết thúc. Thứ tự tương tự được sử dụng cho trang view_entry.
+
+// Ví dụ: Để đặt trường tùy chỉnh 'in_charge' ngay sau
+// tên đặt chỗ, đặt thông tin sau trong config.inc.php:
+//
+// $ edit_entry_field_order = array ('name', 'in_charge');
+//
+// Các mục nhập hợp lệ trong mảng này là: 'create_by', 'name', 'description', 'start_time',
+// 'end_time', 'room_id', 'type', 'Confirm_status', 'privacy_status',
+// cộng với bất kỳ trường tùy chỉnh nào mà bạn có thể đã xác định. Các trường không
+// được đề cập trong mảng được thêm vào cuối, theo thứ tự thông thường của chúng.
 $edit_entry_field_order = array();
 
 // You can so the same for the fields in the Search Criteria section of the report
 // form.  Valid entries in this array are 'report_start', 'report_end', 'areamatch',
 // 'roommatch', 'typematch', 'namematch', 'descrmatch', 'creatormatch', 'match_private',
 // 'match_confirmed', 'match_approved', plus any custom fields you may have defined.
+
+// Bạn có thể làm như vậy đối với các trường trong phần Tiêu chí Tìm kiếm của báo cáo
+// hình thức. Các mục nhập hợp lệ trong mảng này là 'report_start', 'report_end', 'areamatch',
+// 'roommatch', 'typematch', 'namematch', 'descrmatch', 'createormatch', 'match_private',
+// 'match_conf Dead', 'match_approved', cộng với bất kỳ trường tùy chỉnh nào mà bạn có thể đã xác định.
 $report_search_field_order = array();
 
 // And the same for the fields in the Presentation Options section of the report form.
 // Valid entries in this array are 'output', 'output_format', 'sortby' and 'sumby'.
+
+// Và tương tự đối với các trường trong phần Tùy chọn trình bày của biểu mẫu báo cáo.
+// Các mục nhập hợp lệ trong mảng này là 'output', 'output_format', 'sortby' và 'sumby'.
 $report_presentation_field_order = array();
 
 
@@ -803,28 +1116,47 @@ $report_presentation_field_order = array();
 // NOTE: if you are using the 'joomla', 'saml' or 'wordpress' authentication type,
 // then you must use the corresponding session scheme.
 
+// LƯU Ý: nếu bạn đang sử dụng kiểu xác thực 'joomla', 'saml' hoặc 'wordpress',
+// thì bạn phải sử dụng lược đồ phiên tương ứng.
 $auth["type"] = "db"; // How to validate the user/password. One of
                       // "auth_basic", "cas", "config", "crypt", "db", "db_ext", "idcheck",
                       // "imap", "imap_php", "joomla", "ldap", "none", "nw", "pop3",
-                      // "saml", "wix" or "wordpress".
+                      // "saml" or "wordpress".
+// Cách xác thực người dùng / mật khẩu. Một trong
+                       // "auth_basic", "cas", "config", "crypt", "db", "db_ext", "idcheck",
+                       // "imap", "imap_php", "joomla", "ldap", "none", "nw", "pop3",
+                       // "saml" hoặc "wordpress".
 
 $auth["session"] = "php"; // How to get and keep the user ID. One of
                           // "cas", "cookie", "host", "http", "ip", "joomla", "nt",
                           // "omni", "php", "remote_user", "saml" or "wordpress".
+                          // Cách lấy và giữ ID người dùng. Một trong
+                           // "cas", "cookie", "host", "http", "ip", "joomla", "nt",
+                           // "omni", "php", "remote_user", "saml" hoặc "wordpress".
 
 // Configuration parameters for 'cookie' session scheme
+// Tham số cấu hình cho lược đồ phiên 'cookie'
 
 // The encryption secret key for the session tokens. You are strongly
 // advised to change this if you use this session scheme
+// Khóa bí mật mã hóa cho mã phiên. Bạn mạnh mẽ
+// khuyên bạn nên thay đổi điều này nếu bạn sử dụng lược đồ phiên này
 $auth["session_cookie"]["secret"] = "This isn't a very good secret!";
 // The expiry time of a session, in seconds. Set to 0 to use session cookies
+// Thời gian hết hạn của một phiên, tính bằng giây. Đặt thành 0 để sử dụng cookie phiên
 $auth["session_cookie"]["session_expire_time"] = (60*60*24*30); // 30 days
 // Whether to include the user's IP address in their session cookie.
 // Increases security, but could cause problems with proxies/dynamic IP
 // machines
+// Có đưa địa chỉ IP của người dùng vào cookie phiên của họ hay không.
+// Tăng cường bảo mật nhưng có thể gây ra sự cố với proxy / IP động
+// máy móc
 $auth["session_cookie"]["include_ip"] = true;
 // The hash algorithm to use, must be supported by your version of PHP,
 // see http://php.net/manual/en/function.hash-algos.php
+
+// Thuật toán băm để sử dụng, phải được hỗ trợ bởi phiên bản PHP của bạn,
+// xem http://php.net/manual/en/ Chức năng.hash-algos.php
 $auth["session_cookie"]["hash_algorithm"] = 'sha512';
 
 $csrf_cookie["hash_algorithm"] = 'sha512';
@@ -835,22 +1167,31 @@ $csrf_cookie["secret"] = "This still isn't a very good secret!";
 // The session name
 $auth["session_php"]["session_name"] = 'MRBS_SESSID';
 
-// The expiry time of a session cookie, in seconds.  Set it to 0 for the
-// session to expire when the browser is closed.
-// Note:
-// (1) The expiration timestamp is set relative to the server time, which
-//     is not necessarily the same as the time in the client's browser.
-// (2) If session.gc_maxlifetime is less than the expiry time, MRBS will
-//     set it to the expiry time.
+// The expiry time of a session cookie, in seconds
+// N.B. Long session expiry times rely on PHP not retiring the session
+// on the server too early. If you only want session cookies to be used,
+// set this to 0.
+// Thời gian hết hạn của cookie phiên, tính bằng giây
+// N.B. Thời gian hết hạn phiên dài dựa vào việc PHP không ngừng phiên
+// trên máy chủ quá sớm. Nếu bạn chỉ muốn sử dụng cookie phiên,
+// đặt giá trị này thành 0.
 $auth["session_php"]["session_expire_time"] = (60*60*24*30); // 30 days
 
 // Set this to the expiry time for a session after a period of inactivity
-// in seconds.   Setting to zero means that the session will not expire after
+// in seconds.   Setting to zero means that the sesion will not expire after
 // a period of activity - but note that it will expire if the session cookie
 // happens to expire (see above).  Note that if you have $refresh_rate set and
 // your system is not capable of doing Ajax refreshes but instead uses a <meta>
 // tag to do the refresh, then these refreshes will count as activity - this
 // be the case if you have JavaScript disabled on the client.
+
+// Đặt giá trị này thành thời gian hết hạn cho một phiên sau một thời gian không hoạt động
+// trong vài giây. Đặt thành 0 có nghĩa là sesion sẽ không hết hạn sau
+// một khoảng thời gian hoạt động - nhưng lưu ý rằng nó sẽ hết hạn nếu cookie phiên
+// xảy ra hết hạn (xem ở trên). Lưu ý rằng nếu bạn đã đặt $ refresh_rate và
+// hệ thống của bạn không có khả năng làm mới Ajax mà thay vào đó sử dụng <meta>
+// để thực hiện làm mới, sau đó những lần làm mới này sẽ được tính là hoạt động - điều này
+// là trường hợp nếu bạn đã tắt JavaScript trên máy khách.
 $auth["session_php"]["inactivity_expire_time"] = 0; // seconds
 
 
@@ -858,8 +1199,13 @@ $auth["session_php"]["inactivity_expire_time"] = 0; // seconds
 // 'php' and 'cookie' session schemes to override the default behaviour
 // of automatically determining the cookie path to use
 //$cookie_path_override = '/mrbs/';
+// Ghi đè cookie đường dẫn. If this value is set, it will be used by
+// lược đồ 'php' và 'cookie' để ghi đè mặc định vi phạm
+// tự động xác định cookie dẫn đường để sử dụng
+// $ cookie_path_override = '/ mrbs /';
 
 // The list of administrators (can modify other peoples settings).
+// Danh sách quản trị viên (có thể sửa đổi cài đặt của những người khác).
 //
 // This list is not needed when using the 'db' authentication scheme EXCEPT
 // when upgrading from a pre-MRBS 1.4.2 system that used db authentication.
@@ -868,6 +1214,14 @@ $auth["session_php"]["inactivity_expire_time"] = 0; // seconds
 // users list in the database, the system will automatically add a field to
 // the table for access rights and give admin rights to those users in the database
 // for whom admin rights are defined here.   After that this list is ignored.
+// Danh sách này không cần thiết khi sử dụng lược đồ xác thực 'db' NGOẠI TRỪ
+// khi nâng cấp từ hệ thống trước MRBS 1.4.2 đã sử dụng xác thực db.
+// Trước 1.4.2, lược đồ xác thực 'db' cần danh sách này. Khi chạy
+// edit_users.php lần đầu tiên trong hệ thống 1.4.2 trở lên, với một
+// danh sách người dùng trong cơ sở dữ liệu, hệ thống sẽ tự động thêm trường vào
+// bảng cho quyền truy cập và cấp quyền quản trị cho những người dùng đó trong cơ sở dữ liệu
+// cho ai quyền quản trị viên được xác định ở đây. Sau đó danh sách này bị bỏ qua.
+
 unset($auth["admin"]);              // Include this when copying to config.inc.php
 $auth["admin"][] = "127.0.0.1";     // localhost IP address. Useful with IP sessions.
 $auth["admin"][] = "administrator"; // A user name from the user list. Useful
@@ -898,12 +1252,19 @@ $auth["params"] = "";
 // The highest level of access (0=none; 1=user; 2+=admin).    Used in edit_users.php
 // In the future we might want a higher level of granularity, eg to distinguish between
 // different levels of admin
+// cài đặt cấu hình 'auth_db'
+// Cấp truy cập cao nhất (0 = none; 1 = user; 2 + = admin). Được sử dụng trong edit_users.php
+// Trong tương lai, chúng tôi có thể muốn mức độ chi tiết cao hơn, ví dụ: để phân biệt giữa
+// các cấp quản trị khác nhau
 $max_level = 2;
 // The lowest level of admin allowed to view other users
+// Cấp quản trị viên thấp nhất được phép xem những người dùng khác
 $min_user_viewing_level = 2;
 // The lowest level of admin allowed to edit other users
+// Cấp quản trị viên thấp nhất được phép chỉnh sửa người dùng khác
 $min_user_editing_level = 2;
 // The lowest level of admin allowed to edit other bookings
+// Cấp quản trị viên thấp nhất được phép chỉnh sửa các lượt đặt chỗ khác
 $min_booking_admin_level = 2;
 
 
@@ -915,7 +1276,14 @@ $min_booking_admin_level = 2;
 // $pwd_policy['upper']   = 1;  // Minimum number of upper case characters
 // $pwd_policy['numeric'] = 1;  // Minimum number of numeric characters
 // $pwd_policy['special'] = 1;  // Minimum number of special characters (not alphanumeric)
-
+// Chính sách mật khẩu. Bỏ ghi chú các biến và đặt chúng thành
+// các giá trị bắt buộc nếu thích hợp.
+// $ pwd_policy ['length'] = 6; // Chiều dài tối thiểu
+// $ pwd_policy ['alpha'] = 1; // Số ký tự alpha tối thiểu
+// $ pwd_policy ['low'] = 1; // Số ký tự viết thường tối thiểu
+// $ pwd_policy ['upper'] = 1; // Số ký tự viết hoa tối thiểu
+// $ pwd_policy ['numeric'] = 1; // Số ký tự số tối thiểu
+// $ pwd_policy ['special'] = 1; // Số ký tự đặc biệt tối thiểu (không phải chữ và số)
 // 'cas' configuration settings
 $auth['cas']['host']    = 'cas.example.com';  // Full hostname of your CAS Server
 $auth['cas']['port']    = 443;  // CAS server port (integer). Normally for a https server it's 443
@@ -934,6 +1302,10 @@ $auth['cas']['ca_cert_path'] = '/path/to/cachain.pem';
 // For quick testing you can disable SSL validation of the CAS server.
 // THIS SETTING IS NOT RECOMMENDED FOR PRODUCTION.
 // VALIDATING THE CAS SERVER IS CRUCIAL TO THE SECURITY OF THE CAS PROTOCOL!
+
+// Để kiểm tra nhanh, bạn có thể tắt xác thực SSL của máy chủ CAS.
+// CÀI ĐẶT NÀY KHÔNG ĐƯỢC KHUYẾN CÁO ĐỂ SẢN XUẤT.
+// XÁC NHẬN MÁY CHỦ CAS LÀ QUAN TRỌNG ĐỐI VỚI BẢO MẬT CỦA GIAO THỨC CAS!
 $auth['cas']['no_server_validation'] = false;
 
 // Filtering by attribute
@@ -943,8 +1315,15 @@ $auth['cas']['no_server_validation'] = false;
 // unlogged in user.
 // $auth['cas']['filter_attr_name'] = ''; // eg 'department'
 // $auth['cas']['filter_attr_values'] = ''; // eg 'DEPT01', or else an array, eg array('DEPT01', 'DEPT02');
-
+// Lọc theo thuộc tính
+// Hai cài đặt tiếp theo cho phép bạn sử dụng các thuộc tính CAS để yêu cầu người dùng phải có
+// các thuộc tính, nếu không thì cấp độ truy cập của chúng sẽ bằng không. Nói cách khác, trừ khi họ đáp ứng được yêu cầu
+// thuộc tính họ sẽ có thể đăng nhập thành công, nhưng sau đó sẽ không có bất kỳ quyền nào khác ngoài một
+// người dùng đã mở khóa.
+// $ auth ['cas'] ['filter_attr_name'] = ''; // ví dụ: 'bộ phận'
+// $ auth ['cas'] ['filter_attr_values'] = ''; // ví dụ: 'DEPT01', hoặc một mảng khác, ví dụ mảng ('DEPT01', 'DEPT02');
 $auth['cas']['debug']   = false;  // Set to true to enable debug output. Disable for production.
+// Đặt thành true để kích hoạt đầu ra gỡ lỗi. Vô hiệu hóa để sản xuất.
 
 
 // 'auth_db' configuration settings
@@ -952,8 +1331,14 @@ $auth['cas']['debug']   = false;  // Set to true to enable debug output. Disable
 // user level (ie admin/user) and the username.   Custom fields can be added
 // as required.  To protect the password field use 'password_hash' - useful
 // for public demo sites.
+// cài đặt cấu hình 'auth_db'
+// Danh sách các trường mà chỉ quản trị viên mới có thể chỉnh sửa. Theo mặc định, đây là những
+// cấp độ người dùng (tức là quản trị viên / người dùng) và tên người dùng. Các trường tùy chỉnh có thể được thêm vào
+// theo yêu cầu. Để bảo vệ trường mật khẩu, hãy sử dụng 'password_hash' - hữu ích
+// cho các trang demo công khai.
 $auth['db']['protected_fields'] = array('level', 'name', 'display_name');
 // Expiry time for a password reset key
+// Thời gian hết hạn của khóa đặt lại mật khẩu
 $auth['db']['reset_key_expiry'] = 60*60*24; // seconds
 
 
@@ -1182,35 +1567,6 @@ $auth['saml']['disable_mrbs_session_init'] = false;
 // https://simplesamlphp.org/docs/stable/simplesamlphp-sp
 
 
-// 'auth_wix' configuration settings
-$auth['wix']['site_url'] = "https://example.com/";  // The URL of your WIX site
-
-// The API key that you generated and saved in your Wix secrets manager.
-$auth['wix']['mrbs_api_key'] = "";
-
-// The name of the secret in your Wix secrets manager
-$auth['wix']['mrbs_api_key_secret_name'] = "MRBS_API_key";
-
-// The name (title) of the badge that determines whether a member is an
-// MRBS admin.  Note that badge names are case-sensitive.  You can also
-// configure admins in the config file by using
-// $auth['admin'][] = "someone@example.com";
-$auth['wix']['admin_badge'] = "MRBS Admin";
-
-// The name of the member property to be used for the display name.
-// Typically either 'name' or 'nickname'.
-$auth['wix']['display_name_property'] = 'name';
-
-// The number of results to be found at a time in the Wix backend when getting
-// a list of all members.  This is a configuration setting that is passed to
-// the Wix backend code as part of the request.  It is just used internally in
-// the backend and doesn't affect the size of the list returned to MRBS.
-$auth['wix']['limit'] = 500;
-
-// Setting this to true will cause debug information to be written to the PHP
-// error log.
-$auth['wix']['debug'] = false;
-
 // 'auth_wordpress' configuration settings
 $auth['wordpress']['rel_path'] = '..';   // Path to the WordPress installation relative to MRBS.
 // List of WordPress roles that have MRBS Admin capabilities.  The default is 'administrator'.
@@ -1253,10 +1609,19 @@ define('COOKIEHASH', md5($domain_name));
 // with username 'john' has email address 'jsmith@example.com', then he would be able
 // to enter either 'john', 'jsmith' or 'jsmith@example.com' when logging in.
 // Only supported for the 'db' authentication type.
+// Cài đặt chung
+
+// Cho phép người dùng chỉ cần nhập phần cục bộ của địa chỉ email của họ (miễn là
+// kiểu xác thực hỗ trợ xác thực theo phần cục bộ). Ví dụ, nếu người dùng
+// với tên người dùng 'john' có địa chỉ email 'jsmith@example.com', thì anh ấy sẽ có thể
+// để nhập 'john', 'jsmith' hoặc 'jsmith@example.com' khi đăng nhập.
+// Chỉ được hỗ trợ cho kiểu xác thực 'db'
 $auth['allow_local_part_email'] = false;
 
 // If you want only administrators to be able to make and delete bookings,
 // set this variable to true
+// Nếu bạn muốn chỉ quản trị viên mới có thể thực hiện và xóa các lượt đặt trước,
+// đặt biến này thành true
 $auth['only_admin_can_book'] = false;
 
 // This allows you to set a date (and time) before which only admins can make
@@ -1271,61 +1636,90 @@ $auth['only_admin_can_book_before'] = false;
 
 // If you want only administrators to be able to make repeat bookings,
 // set this variable to true
+// Nếu bạn chỉ muốn quản trị viên có thể thực hiện đặt trước lặp lại,
+// đặt biến này thành true
 $auth['only_admin_can_book_repeat'] = false;
 
 // If you want only administrators to be able to make bookings spanning
 // more than one day, set this variable to true.
+// Nếu bạn muốn chỉ quản trị viên mới có thể thực hiện đặt trước kéo dài
+// hơn một ngày, hãy đặt biến này thành true.
 $auth['only_admin_can_book_multiday'] = false;
 
 // If you want only administrators to be able to select multiple rooms
 // on the booking form then set this to true.  (It doesn't stop ordinary users
 // making separate bookings for the same time slot, but it does slow them down).
+// Nếu bạn chỉ muốn quản trị viên có thể chọn nhiều phòng
+// trên mẫu đặt phòng sau đó đặt giá trị này thành true. (Nó không ngăn cản những người dùng bình thường
+// đặt chỗ riêng cho cùng một khoảng thời gian, nhưng nó làm chậm chúng).
 $auth['only_admin_can_select_multiroom'] = false;
 
 // Set this to true if you want to restrict the ability to use the "Copy" button on
 // the view_entry page to ordinary users viewing their own entries and to admins.
+// Đặt giá trị này thành true nếu bạn muốn hạn chế khả năng sử dụng nút "Sao chép" trên
+// trang view_entry cho người dùng bình thường xem các mục nhập của chính họ và cho quản trị viên.
 $auth['only_admin_can_copy_others_entries'] = false;
 
 // If you don't want ordinary users to be able to see the other users'
-// details then set this to true.  Used by the 'db' authentication scheme to determine
-// whether to show other users to non-admins, and also generally to determine whether
-// to create mailto: links, eg when viewing booking details.
-$auth['only_admin_can_see_other_users'] = false;
+// details then set this to true.  (Only relevant when using 'db' authentication]
+// Nếu bạn không muốn người dùng bình thường có thể nhìn thấy những người dùng khác '
+// chi tiết sau đó đặt giá trị này thành true. (Chỉ có liên quan khi sử dụng xác thực 'db']
+$auth['only_admin_can_see_other_users'] = true;
 
 // For events that allow registration, the other registrants' names are by default
 // not shown unless you have write access to the booking.
+// Đối với các sự kiện cho phép đăng ký, tên của những người đăng ký khác theo mặc định
+// không hiển thị trừ khi bạn có quyền ghi vào đặt chỗ.
 $auth['show_registrant_names'] = false;
 
 // For events that allow registration you can also show the registrants' names in
 // the calendar view, whether or not you have write access to the booking.
 // NOTE: you also need $show_registration_level = true; for this to work.
+// Đối với các sự kiện cho phép đăng ký, bạn cũng có thể hiển thị tên của những người đăng ký trong
+// chế độ xem lịch, cho dù bạn có quyền ghi vào đặt chỗ hay không.
+// LƯU Ý: bạn cũng cần $ show_registration_level = true; để điều này hoạt động.
 $auth['show_registrant_names_in_calendar'] = false;
 
 // You can additionally choose whether to show the registrants' names in the calendar
 // if the calendar is open to the public and the user is not logged in or has level 0 access.
 // NOTE: you also need $auth['show_registrant_names_in_calendar'] = true; for this to work
+
+// Ngoài ra, bạn có thể chọn có hiển thị tên người đăng ký trong lịch hay không
+// nếu lịch được mở công khai và người dùng chưa đăng nhập hoặc có quyền truy cập cấp 0.
+// LƯU Ý: bạn cũng cần $ auth ['show_registrant_names_in_calendar'] = true; để cái này hoạt động
 $auth['show_registrant_names_in_public_calendar'] = false;
 
 // Set this to true if you want ordinary users to be able to register others.
+// Đặt điều này thành true nếu bạn muốn người dùng bình thường có thể đăng ký người khác.
 $auth['users_can_register_others'] = false;
 
 // Set this to true if you don't want admins to be able to make bookings
 // on behalf of other users
+// Đặt điều này thành true nếu bạn không muốn quản trị viên có thể đặt chỗ
+// thay mặt cho những người dùng khác
 $auth['admin_can_only_book_for_self'] = false;
 
 // An array of booking types for admin use only
+// Một loạt các loại đặt chỗ chỉ dành cho quản trị viên
 $auth['admin_only_types'] = array();  // eg array('E');
 
 // If you want to prevent the public (ie un-logged in users) from
 // being able to view bookings completely, set this variable to true
+// Nếu bạn muốn ngăn công chúng (tức là người dùng chưa đăng nhập) khỏi
+// có thể xem toàn bộ lượt đặt chỗ, hãy đặt biến này thành true
 $auth['deny_public_access'] = false;
 
 // Or else you can allow them to see that there is a booking, but the
 // details will be shown as private if you set this to true.
+// Hoặc nếu không, bạn có thể cho phép họ thấy rằng có một lượt đặt chỗ, nhưng
+// chi tiết sẽ được hiển thị là riêng tư nếu bạn đặt điều này thành true.
 $auth['force_private_for_guests'] = false;
 
 // Set to true if you want admins to be able to perform bulk deletions
 // on the Report page.  (It also only shows up if JavaScript is enabled)
+
+// Đặt thành true nếu bạn muốn quản trị viên có thể thực hiện xóa hàng loạt
+// trên trang Báo cáo. (Nó cũng chỉ hiển thị nếu JavaScript được bật)
 $auth['show_bulk_delete'] = false;
 
 // Allow admins to insert custom HTML on the area and room pages.  This can be useful for
@@ -1343,6 +1737,9 @@ $allow_cli = false;
 // Set to true if you want usernames and passwords submitted in the login form to be
 // recorded in the error log as part of the $_POST variable.  Otherwise they are
 // replaced by '****', unless they are the empty string ''.
+// Đặt thành true nếu bạn muốn tên người dùng và mật khẩu được gửi trong biểu mẫu đăng nhập là
+// được ghi lại trong nhật ký lỗi như một phần của biến $ _POST. Nếu không thì họ là
+// được thay thế bằng '****', trừ khi chúng là chuỗi rỗng ''.
 $auth['log_credentials'] = false;
 
 
@@ -1354,36 +1751,49 @@ $auth['log_credentials'] = false;
 // --------------
 
 // Set the email address of the From field. Default is 'admin_email@your.org'
-$mail_settings['from'] = 'admin_email@your.org';
+// Đặt địa chỉ email của trường Từ. Mặc định là 'admin_email@your.org'
+$mail_settings['from'] = 'it@nhuatienphong.vn';
 
 // By default MRBS will send some emails (eg booking approval emails) as though they have come from
 // the user, rather than the From address above.   However some email servers will not allow this in
 // order to prevent email spoofing.   If this is the case then set this to true in order that the
 // From address above is used for all emails.
+// Theo mặc định, MRBS sẽ gửi một số email (ví dụ: email phê duyệt đặt phòng) như thể chúng đến từ
+// người dùng, thay vì địa chỉ Từ ở trên. Tuy nhiên, một số máy chủ email sẽ không cho phép điều này trong
+// để ngăn chặn việc giả mạo email. Nếu đúng như vậy thì hãy đặt điều này thành true để
+// Địa chỉ từ ở trên được sử dụng cho tất cả các email.
 $mail_settings['use_from_for_all_mail'] = false;
-
-// By default MRBS will set a Reply-To address and use current user's email address.  Set this to
-// false in order not to set a Reply-To address.
-$mail_settings['use_reply_to'] = true;
 
 // The address to be used for the ORGANIZER in an iCalendar event.   Do not make
 // this email address the same as the admin email address or the recipients
 // email address because on some mail systems, eg IBM Domino, the iCalendar email
 // notification is silently discarded if the organizer's email address is the same
 // as the recipient's.  On other systems you may get a "Meeting not found" message.
-$mail_settings['organizer'] = 'mrbs@your.org';
+// Địa chỉ được sử dụng cho ORGANIZER trong sự kiện iCalendar. Đừng làm
+// địa chỉ email này giống với địa chỉ email quản trị hoặc người nhận
+// địa chỉ email vì trên một số hệ thống thư, ví dụ: IBM Domino, email iCalendar
+// thông báo bị hủy âm thầm nếu địa chỉ email của người tổ chức giống nhau
+// với tư cách là của người nhận. Trên các hệ thống khác, bạn có thể nhận được thông báo "Không tìm thấy cuộc họp".
+$mail_settings['organizer'] = 'it@nhuatienphong.vn';
 
 // Set the recipient email. Default is 'admin_email@your.org'. You can define
 // more than one recipient like this "john@doe.com,scott@tiger.com"
-$mail_settings['recipients'] = 'admin_email@your.org';
+// Đặt email người nhận. Mặc định là 'admin_email@your.org'. Bạn có thể xác định
+// nhiều người nhận như thế này "john @ doe.com, scott @ tiger.com"
+$mail_settings['recipients'] = 'it@nhuatienphong.vn';
 
 // Set email address of the Carbon Copy field. Default is ''. You can define
 // more than one recipient (see 'recipients')
+// Đặt địa chỉ email của trường Carbon Copy. Mặc định là ''. Bạn có thể xác định
+// nhiều hơn một người nhận (xem 'người nhận')
 $mail_settings['cc'] = '';
 
 // Set to true if you want the cc addresses to be appended to the to line.
 // (Some email servers are configured not to send emails if the cc or bcc
 // fields are set)
+// Đặt thành true nếu bạn muốn các địa chỉ cc được nối vào dòng tới.
+// (Một số máy chủ email được định cấu hình để không gửi email nếu cc hoặc bcc
+// các trường được thiết lập)
 $mail_settings['treat_cc_as_to'] = false;
 
 
@@ -1395,11 +1805,18 @@ $mail_settings['treat_cc_as_to'] = false;
 // Set to true or false as required
 // (Note:  the email addresses for the area and room administrators are set from the
 // edit_area.php and edit_room.php pages in MRBS)
-$mail_settings['admin_on_bookings']      = false;  // the addresses defined by $mail_settings['recipients'] below
-$mail_settings['area_admin_on_bookings'] = false;  // the area administrator
-$mail_settings['room_admin_on_bookings'] = false;  // the room administrator
-$mail_settings['booker']                 = false;  // the person making the booking
-$mail_settings['book_admin_on_approval'] = false;  // the booking administrator when booking approval is enabled
+// NGƯỜI GỬI EMAIL
+// ------------
+// Các cài đặt sau xác định ai sẽ được gửi email khi đặt phòng,
+// đã chỉnh sửa hoặc xóa (mặc dù hai sự kiện sau phụ thuộc vào cài đặt "Khi nào" bên dưới).
+// Đặt thành true hoặc false theo yêu cầu
+// (Lưu ý: địa chỉ email cho quản trị viên khu vực và phòng được đặt từ
+// các trang edit_area.php và edit_room.php trong MRBS)
+$mail_settings['admin_on_bookings']      = true;  // the addresses defined by $mail_settings['recipients'] below
+$mail_settings['area_admin_on_bookings'] = true;  // the area administrator
+$mail_settings['room_admin_on_bookings'] = true;  // the room administrator
+$mail_settings['booker']                 = true;  // the person making the booking
+$mail_settings['book_admin_on_approval'] = true;  // the booking administrator when booking approval is enabled
                                                    // (which is the MRBS admin, but this setting allows MRBS
                                                    // to be extended to have separate booking approvers)
 
@@ -1416,13 +1833,29 @@ $mail_settings['book_admin_on_approval'] = false;  // the booking administrator 
 // and before, where there was no explicit config setting, but mails were always sent
 // for new bookings if there was somebody to send them to)
 
+// KHI NÀO GỬI EMAIL
+// -------------
+// Các cài đặt này xác định thời điểm gửi email.
+// Đặt thành true hoặc false theo yêu cầu
+//
+// (Lưu ý: (a) các biến $ mail_settings ['admin_on_delete'] và
+// $ mail_settings ['admin_all'], được sử dụng trong MRBS phiên bản 1.4.5 và
+// trước đây không được dùng nữa. Họ vẫn được hỗ trợ vì lý do lạc hậu
+// khả năng tương thích, nhưng chúng có thể bị rút lại trong tương lai. (b) mặc định
+// giá trị của $ mail_settings ['on_new'] là đúng để tương thích với MRBS 1.4.5
+// và trước đây, nơi không có cài đặt cấu hình rõ ràng, nhưng thư luôn được gửi
+// cho các đặt chỗ mới nếu có ai đó gửi chúng đến)
+
 $mail_settings['on_new']    = true;   // when an entry is created
-$mail_settings['on_change'] = false;  // when an entry is changed
-$mail_settings['on_delete'] = false;  // when an entry is deleted
+$mail_settings['on_change'] = true;  // when an entry is changed
+$mail_settings['on_delete'] = true;  // when an entry is deleted
 
 // It is also possible to allow all users or just admins to choose not to send an
 // email when creating or editing a booking.  This can be useful if an inconsequential
 // change is being made, or many bookings are being made at the beginning of a term or season.
+// Cũng có thể cho phép tất cả người dùng hoặc chỉ quản trị viên chọn không gửi
+// gửi email khi tạo hoặc chỉnh sửa đặt chỗ. Điều này có thể hữu ích nếu một
+// thay đổi đang được thực hiện hoặc nhiều lượt đặt trước đang được thực hiện vào đầu kỳ hạn hoặc mùa giải.
 $mail_settings['allow_no_mail']        = false;
 $mail_settings['allow_admins_no_mail'] = false;  // Ignored if 'allow_no_mail' is true
 $mail_settings['no_mail_default'] = false; // Default value for the 'no mail' checkbox.
@@ -1434,10 +1867,15 @@ $mail_settings['no_mail_default'] = false; // Default value for the 'no mail' ch
 // -------------
 // These settings determine what should be included in the email
 // Set to true or false as required
-$mail_settings['details']   = false; // Set to true if you want full booking details;
+
+// GÌ ĐỂ GỬI EMAIL
+// -------------
+// Các cài đặt này xác định những gì nên được đưa vào email
+// Đặt thành true hoặc false theo yêu cầu
+$mail_settings['details']   = true; // Set to true if you want full booking details;
                                      // otherwise you just get a link to the entry
-$mail_settings['html']      = false; // Set to true if you want HTML mail
-$mail_settings['icalendar'] = false; // Set to true to include iCalendar details
+$mail_settings['html']      = true; // Set to true if you want HTML mail
+$mail_settings['icalendar'] = true; // Set to true to include iCalendar details
                                      // which can be imported into a calendar.  (Note:
                                      // iCalendar details will not be sent for areas
                                      // that use periods as there isn't a mapping between
@@ -1448,7 +1886,8 @@ $mail_settings['icalendar'] = false; // Set to true to include iCalendar details
 // -----------------------------------------
 
 // Set the language used for emails (choose an available lang.* file).
-$mail_settings['admin_lang'] = 'en';   // Default is 'en'.
+// Đặt ngôn ngữ được sử dụng cho email (chọn một tệp lang. * Có sẵn).
+$mail_settings['admin_lang'] = 'vi';   // Default is 'en'.
 
 
 // HOW TO EMAIL - ADDRESSES
@@ -1461,10 +1900,25 @@ $mail_settings['admin_lang'] = 'en';   // Default is 'en'.
 // if you are using any other authentication scheme then the following settings allow
 // you to specify a domain name that will be appended to the username to produce a
 // valid email address (eg "@domain.com").  MRBS will add the '@' character for you.
+
+// CÁCH GỬI EMAIL - ĐỊA CHỈ
+// ------------------------
+// Địa chỉ email của quản trị viên MRBS được đặt trong tệp cấu hình và địa chỉ của
+// quản trị viên phòng và khu vực được thiết lập thông qua edit_area.php và edit_room.php
+// các trang trong MRBS. Nhưng nếu bạn đã đặt $ mail_settings ['booker'] ở trên thành true, MRBS sẽ
+// cần địa chỉ email của người dùng bình thường. Nếu bạn đang sử dụng "db"
+// phương thức xác thực thì MRBS sẽ có thể lấy chúng từ bảng người dùng. Nhưng mà
+// nếu bạn đang sử dụng bất kỳ lược đồ xác thực nào khác thì các cài đặt sau cho phép
+// bạn chỉ định một tên miền sẽ được thêm vào tên người dùng để tạo ra một
+// địa chỉ email hợp lệ (ví dụ: "@ domain.com"). MRBS sẽ thêm ký tự '@' cho bạn.
 $mail_settings['domain'] = '';
 // If you use $mail_settings['domain'] above and the username returned by mrbs contains extra
 // strings appended like the domain name ('username.domain'), you need to provide
 // this extra string here so that it will be removed from the username.
+
+// Nếu bạn sử dụng $ mail_settings ['domain'] ở trên và tên người dùng do mrbs trả về có chứa thêm
+// các chuỗi được thêm vào như tên miền ('username.domain'), bạn cần cung cấp
+// chuỗi bổ sung này ở đây để nó sẽ bị xóa khỏi tên người dùng.
 $mail_settings['username_suffix'] = '';
 
 
@@ -1472,7 +1926,11 @@ $mail_settings['username_suffix'] = '';
 // ----------------------
 // Set the name of the backend used to transport your mails. Either 'mail',
 // 'smtp', 'sendmail' or 'qmail'. Default is 'mail'.
-$mail_settings['admin_backend'] = 'mail';
+// CÁCH GỬI EMAIL - QUAY LẠI
+// ----------------------
+// Đặt tên của chương trình phụ trợ được sử dụng để vận chuyển các thư của bạn. 'Thư',
+// 'smtp', 'sendmail' hoặc 'qmail'. Mặc định là 'thư'.
+$mail_settings['admin_backend'] = 'smtp';
 
 /*******************
  * Sendmail settings
@@ -1497,21 +1955,21 @@ $mail_settings['qmail']['qmail-inject-path'] = '/usr/bin/qmail-inject';
  */
 
 // These settings are only used with the "smtp" backend
-$smtp_settings['host'] = 'localhost';  // SMTP server
-$smtp_settings['port'] = 25;           // SMTP port number
-$smtp_settings['auth'] = false;        // Whether to use SMTP authentication
-$smtp_settings['secure'] = '';         // Encryption method: '', 'tls' or 'ssl' - note that 'tls' means TLS is used even if the SMTP
+$smtp_settings['host'] = 'smtp.gmail.com';  // SMTP server
+$smtp_settings['port'] = 465;           // SMTP port number
+$smtp_settings['auth'] = true;        // Whether to use SMTP authentication
+$smtp_settings['secure'] = 'ssl';         // Encryption method: '', 'tls' or 'ssl' - note that 'tls' means TLS is used even if the SMTP
                                        // server doesn't advertise it. Conversely if you specify '' and the server advertises TLS, TLS
                                        // will be used, unless the 'disable_opportunistic_tls' configuration parameter shown below is
                                        // set to true.
-$smtp_settings['username'] = '';       // Username (if using authentication)
-$smtp_settings['password'] = '';       // Password (if using authentication)
+$smtp_settings['username'] = 'it@nhuatienphong.vn';       // Username (if using authentication)
+$smtp_settings['password'] = 'sbmpydmyfsarlwxr';       // Password (if using authentication)
 
 // The hostname to use in the Message-ID header and as default HELO string.
 // If empty, PHPMailer attempts to find one with, in order,
 // $_SERVER['SERVER_NAME'], gethostname(), php_uname('n'), or the value
 // 'localhost.localdomain'.
-$smtp_settings['hostname'] = '';
+$smtp_settings['hostname'] = 'smtp.gmail.com';
 
 // The SMTP HELO/EHLO name used for the SMTP connection.
 // Default is $smtp_settings['hostname']. If $smtp_settings['hostname'] is empty, PHPMailer attempts to find
@@ -1541,18 +1999,32 @@ $mail_settings['ics_filename'] = "booking";
 // then these won't be taken into account.   Note also that if the email is going to n
 // different addresses then this counts as n emails, as that is how most servers operate.
 // A setting of zero disables throttling.
+
+// Có thể điều chỉnh tốc độ gửi email đi nếu cần để trợ giúp
+// giữ trong giới hạn của máy chủ thư. Lưu ý rằng điều chỉnh chỉ áp dụng cho các email được
+// do một người dùng gửi. Nếu người dùng khác đang tạo thông báo qua email cùng một lúc
+// thì chúng sẽ không được tính đến. Cũng lưu ý rằng nếu email được chuyển đến n
+// các địa chỉ khác nhau thì điều này được tính là n email, vì đó là cách hầu hết các máy chủ hoạt động.
+// Cài đặt bằng 0 vô hiệu hóa điều chỉnh.
 $mail_settings['rate_limit'] = 0;  // emails per second (float or int)
 
 // Set this to true if you want MRBS to output debug information when you are sending email.
 // If you are not getting emails it can be helpful by telling you (a) whether the mail functions
 // are being called in the first place (b) whether there are addresses to send email to and (c)
 // the result of the mail sending operation.
+// Đặt điều này thành true nếu bạn muốn MRBS xuất ra thông tin gỡ lỗi khi bạn đang gửi email.
+// Nếu bạn không nhận được email, có thể hữu ích bằng cách cho bạn biết (a) liệu các chức năng của thư
+// đang được gọi ở vị trí đầu tiên (b) cho dù có địa chỉ nào để gửi email đến và (c)
+// kết quả của thao tác gửi mail.
 $mail_settings['debug'] = false;
 // Where to send the debug output.  Can be 'browser' or 'log' (for the error_log)
 $mail_settings['debug_output'] = 'log';
 
 // Set this to true if you do not want any email sent, whatever the rest of the settings.
 // This is a global setting that will override anything else.   Useful when testing MRBS.
+
+// Đặt điều này thành true nếu bạn không muốn gửi bất kỳ email nào, bất kể phần còn lại của cài đặt.
+// Đây là cài đặt chung sẽ ghi đè lên bất kỳ thứ gì khác. Hữu ích khi kiểm tra MRBS.
 $mail_settings['disabled'] = false;
 
 
@@ -1564,34 +2036,56 @@ $mail_settings['disabled'] = false;
 // based on the user's browser language settings. It will ensure that
 // the language displayed is always the value of $default_language_tokens,
 // as specified below
-$disable_automatic_language_changing = false;
+
+// Đặt giá trị này thành true để tắt tính năng tự động thay đổi ngôn ngữ mà MRBS thực hiện
+// dựa trên cài đặt ngôn ngữ trình duyệt của người dùng. Nó sẽ đảm bảo rằng
+// ngôn ngữ được hiển thị luôn là giá trị của $ default_language_tokens,
+// như được chỉ định bên dưới
+$disable_automatic_language_changing = true;
 
 // Set this to a different language specifier to default to different
 // language tokens. This must equate to a lang.* file in MRBS.
 // e.g. use "fr" to use the translations in "lang.fr" as the default
 // translations.  [NOTE: it is only necessary to change this if you
 // have disabled automatic language changing above]
-$default_language_tokens = "en";
+// Đặt điều này thành một định nghĩa ngôn ngữ khác để mặc định thành khác
+// mã thông báo ngôn ngữ. Điều này phải tương đương với tệp lang. * Trong MRBS.
+// ví dụ. sử dụng "fr" để sử dụng các bản dịch trong "lang.fr" làm mặc định
+// bản dịch. [LƯU Ý: chỉ cần thay đổi điều này nếu bạn
+// đã tắt tính năng tự động thay đổi ngôn ngữ ở trên]
+$default_language_tokens = "vi";
 
 // Set this to a valid locale that is supported on the OS you run the
 // MRBS server on if you want to override the automatic locale determination
 // MRBS performs.  The locale should be in the form of a BCP 47 language
 // tag, eg 'en-GB', or 'sr-Latn-RS'.   Note that MRBS will convert this into
 // a format suitable for your OS, eg by adding '.utf-8' or changing it to 'eng'.
-$override_locale = "";
 
-// FAQ file language selection. If not set, use the default English file.
-// If your language faq file is available, set $faqfilelang to match the
-// end of the file name, excluding the underscore (eg for site_faq_fr.html
-// use "fr").  For compatibility with older versions of MRBS settings with
-// the underscore, eg "_fr" are supported, but deprecated.
+// Đặt điều này thành ngôn ngữ hợp lệ được hỗ trợ trên hệ điều hành bạn chạy
+// Bật máy chủ MRBS nếu bạn muốn ghi đè xác định ngôn ngữ tự động
+// MRBS thực hiện. Ngôn ngữ phải ở dạng ngôn ngữ BCP 47
+// thẻ, ví dụ: 'en-GB' hoặc 'sr-Latn-RS'. Lưu ý rằng MRBS sẽ chuyển đổi điều này thành
+// định dạng phù hợp với hệ điều hành của bạn, ví dụ: bằng cách thêm '.utf-8' hoặc thay đổi nó thành 'eng'.
+$override_locale = "vi";
+
+// faq file language selection. IF not set, use the default english file.
+// IF your language faq file is available, set $faqfilelang to match the
+// end of the file name, including the underscore (ie. for site_faq_fr.html
+// use "_fr"
+// lựa chọn ngôn ngữ tệp faq. NẾU không được đặt, hãy sử dụng tệp tiếng anh mặc định.
+// NẾU tệp câu hỏi thường gặp về ngôn ngữ của bạn có sẵn, hãy đặt $ faqfilelang để khớp với
+// phần cuối của tên tệp, bao gồm cả dấu gạch dưới (ví dụ: cho site_faq_fr.html
+// sử dụng "_fr"
 $faqfilelang = "";
 
 // Language selection when run from the command line
-$cli_language = "en";
+// Lựa chọn ngôn ngữ khi chạy từ dòng lệnh
+$cli_language = "vi";
 
 // Set to true to get debug information on languages and locales written to the
 // error log.
+// Đặt thành true để nhận thông tin gỡ lỗi về ngôn ngữ và địa phương được ghi vào
+// nhật ký lỗi.
 $language_debug = false;
 
 // Vocab overrides
@@ -1607,18 +2101,20 @@ $language_debug = false;
 // Applying vocab overrides in the config file rather than editing the lang files
 // mean that your changes will be preserved when you upgrade to the next version of
 // MRBS and you won't have to re-edit the lang file.
+// Bạn có thể ghi đè các chuỗi văn bản xuất hiện trong tệp lang. * Bằng cách cài đặt
+// $ vocab_override [LANG] [TOKEN] trong tệp cấu hình của bạn, trong đó LANG là ngôn ngữ,
+// ví dụ 'en' và TOKEN là khóa của mảng $ vocab. Ví dụ để
+// thay đổi chuỗi "Hệ thống đặt phòng họp" bằng tiếng Anh
+//
+// $ vocab_override ['en'] ['mrbs'] = "Hệ thống đặt trước tài nguyên của tôi";
+//
+// Áp dụng ghi đè vocab trong tệp cấu hình thay vì chỉnh sửa tệp lang
+// nghĩa là các thay đổi của bạn sẽ được giữ nguyên khi bạn nâng cấp lên phiên bản tiếp theo của
+// MRBS và bạn sẽ không phải chỉnh sửa lại tệp lang.
 
 /*************
  * Reports
  *************/
-
-// Default form options
-
-// Sort report by 'r' for room, 's' for start time.
-$default_sortby = 'r';
-
-// Summary: sum by 'd' for brief description, 'c' for creator, 't' for type
-$default_sumby = 'd';
 
 // Default file names
 $report_filename  = "report";
@@ -1648,19 +2144,18 @@ $csv_bom = false;
 // The default delimiter for separating the area and room in the LOCATION property
 // of an iCalendar event.   Note that no escaping of the delimiter is provided so
 // it must not occur in room or area names.
+// Dấu phân cách mặc định để phân tách khu vực và phòng trong thuộc tính LOCATION
+// sự kiện iCalendar. Lưu ý rằng không có dấu phân cách thoát được cung cấp như vậy
+// nó không được xuất hiện trong tên phòng hoặc khu vực.
 $default_area_room_delimiter = '/';
 
 // Set the default source type for imports.  Can be 'file' or 'url'
+// Đặt kiểu nguồn mặc định cho các lần nhập. Có thể là 'tệp' hoặc 'url'
 $default_import_source = 'file';
 
 // Default setting for importing past events
+// Cài đặt mặc định để nhập các sự kiện trước đây
 $default_import_past = true;
-
-// By default iCalendar notifications will be sent with the PARTSTAT property set to
-// "NEEDS-ACTION".  If you set this variable to true then it will be set to "ACCEPTED".
-// This will change how the notification is treated by your email/calendar client.
-// See RFC 5545 for more details.
-$partstat_accepted = false;
 
 
 /*************
@@ -1685,6 +2180,23 @@ $partstat_accepted = false;
 // Each type has a color which is defined in the array $color_types in the styling.inc
 // file in the Themes directory
 
+// Mảng này liệt kê các mã loại mục nhập đã định cấu hình. Các giá trị ánh xạ tới một
+// ký tự đơn trong cơ sở dữ liệu MRBS và vì vậy có thể là bất kỳ mảng PHP nào được phép
+// tính cách.
+//
+// Các mô tả mặc định của các loại mục nhập được giữ trong các tệp ngôn ngữ
+// là "type.X" trong đó 'X' là loại mục nhập. Nếu bạn muốn thay đổi mô tả
+// bạn có thể ghi đè các mô tả mặc định bằng cách đặt cấu hình $ vocab_override
+// Biến đổi. Ví dụ: nếu bạn thêm một loại đặt chỗ mới 'C', mức tối thiểu bạn cần
+// việc cần làm là thêm một dòng vào config.inc.php như:
+//
+// $ vocab_override ["en"] ["type.C"] = "Loại đặt chỗ mới";
+//
+// Dưới đây là một mảng mặc định cơ bản đảm bảo có ít nhất một số kiểu được xác định.
+// Định nghĩa kiểu thích hợp nên được tạo trong config.inc.php.
+//
+// Mỗi kiểu có một màu được xác định trong mảng $ color_types trong styles.inc
+// tệp trong thư mục Chủ đề
 unset($booking_types);    // Include this line when copying to config.inc.php
 $booking_types[] = "E";
 $booking_types[] = "I";

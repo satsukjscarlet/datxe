@@ -640,17 +640,9 @@ function checkConflicts(optional)
     }
 
     checkConflicts.nOutstanding++;
-    $.post('edit_entry_handler.php', params)
-      .fail(function() {
-        $('#checks').hide();
-      })
-      .done(function(result) {
-        if (!result)
+    $.post('edit_entry_handler.php', params, function(result) {
+        if (result)
         {
-          $('#checks').hide();
-        }
-        else {
-          $('#checks').show();
           checkConflicts.nOutstanding--;
           var conflictDiv = $('#conflict_check');
           var scheduleDetails = $('#schedule_details');
@@ -676,13 +668,12 @@ function checkConflicts(optional)
           scheduleDetails.html(detailsHTML);
 
           <?php
-          // Display the results of the policy check. Set the class to "good" if there
-          // are no policy violations at all; to "notice" if there are no errors, but some
+          // Display the results of the policy check.   Set the class to "good" if there
+          // are no policy violations at all.  To "notice" if there are no errors, but some
           // notices (this happens when an admin user makes a booking that an ordinary user
-          // would not be allowed to); otherwise "bad".  Content and styling are supplied by CSS.
+          // would not be allowed to.  Otherwise "bad".  Content and styling are supplied by CSS.
           ?>
           var policyDiv = $('#policy_check');
-          var rulesList;
           if (result.violations.errors.length === 0)
           {
             if (result.violations.notices.length === 0)
@@ -697,7 +688,7 @@ function checkConflicts(optional)
               detailsHTML = "<p>";
               titleText = '<?php echo escape_js(html_entity_decode(get_vocab("rules_broken_notices"))) ?>' + "\n\n";
               detailsHTML += titleText + "<\/p>";
-              rulesList = getErrorList(result.violations.notices);
+              var rulesList = getErrorList(result.violations.notices);
               detailsHTML += rulesList.html;
               titleText += rulesList.text;
             }
@@ -708,13 +699,13 @@ function checkConflicts(optional)
             detailsHTML = "<p>";
             titleText = '<?php echo escape_js(html_entity_decode(get_vocab("rules_broken"))) ?>' + "\n\n";
             detailsHTML += titleText + "<\/p>";
-            rulesList = getErrorList(result.violations.errors);
+            var rulesList = getErrorList(result.violations.errors);
             detailsHTML += rulesList.html;
             titleText += rulesList.text;
           }
           policyDiv.attr('title', titleText);
           policyDetails.html(detailsHTML);
-        }  <?php // if (!result) else ?>
+        }  <?php // if (result) ?>
       }, 'json');
   }, timeout);  <?php // setTimeout() ?>
 
@@ -735,28 +726,22 @@ vocab.days    = {singular: '<?php echo escape_js(get_vocab("day")) ?>',
                  plural:   '<?php echo escape_js(get_vocab("days")) ?>'};
 
 
-<?php
-// Removes any trailing zeroes after the decimal point.
-?>
 function durFormat(r)
 {
-  var lastChar;
-
   r = r.toFixed(2);
   r = parseFloat(r);
   r = r.toLocaleString();
 
   if ((r.indexOf('.') >= 0) || (r.indexOf(',') >= 0))
   {
-    while (r.slice(-1) === '0')
+    while (r.substr(r.length -1) === '0')
     {
-      r = r.slice(0, -1);
+      r = r.substr(0, r.length - 1);
     }
 
-    lastChar = r.slice(-1);
-    if ((lastChar === '.') || (lastChar === ','))
+    if ((r.substr(r.length -1) === '.') || (r.substr(r.length -1) === ','))
     {
-      r = r.slice(0, -1);
+      r = r.substr(0, r.length - 1);
     }
   }
 
@@ -783,6 +768,7 @@ function getDuration(from, to, days)
 
 
   durUnits = (enablePeriods) ? '<?php echo "periods" ?>' : '<?php echo "minutes" ?>';
+  duration = to - from;
   duration = Math.floor((to - from) / 60);
 
   if (enablePeriods)
@@ -931,9 +917,8 @@ function adjustSlotSelectors()
   //     to have a go at finding a time/period in the new area as close
   //     as possible to the one that was selected in the old area.
   ?>
-  var area = $('#area'),
-      oldArea = area.data('previous'),
-      currentArea = area.data('current');
+  var oldArea = $('#area').data('previous'),
+      currentArea = $('#area').data('current');
 
   var enablePeriods    = areaConfig('enable_periods'),
       oldEnablePeriods = areaConfig('enable_periods', oldArea),
@@ -1278,9 +1263,8 @@ function populateFromSessionStorage(form)
         }
       }
     });
-
     <?php // Now assign values to the selects ?>
-    for (var property in selects)
+    for (const property in selects)
     {
       $('[name="' + property + '"]').val(selects[property]).change();
     }
@@ -1304,16 +1288,6 @@ function populateFromSessionStorage(form)
         console.warn("MRBS: something has gone wrong - maybe the MRBS datalist structure has changed.")
       }
     });
-
-    <?php
-    // Fix up the flatpickr inputs.  Although the dates in the hidden inputs will have been set to
-    // the correct values, we need to force the dates in the visible fields to be set, not just
-    // to the correct value, but also in the correct format.
-    ?>
-    form.find('.flatpickr-input').each(function() {
-        document.querySelector('#' + $(this).attr('id'))._flatpickr.setDate($(this).val(), true);
-      });
-
   }
 }
 
@@ -1322,22 +1296,22 @@ $(document).on('page_ready', function() {
 
   isBookAdmin = args.isBookAdmin;
 
-  var form = $('#main'),
-      areaSelect = $('#area'),
-      startSelect,
-      endSelect,
-      allDay;
+  var form = $('#main');
 
   <?php
   // If there's only one enabled area in the database there won't be an area
   // select input, so we'll have to create a dummy input because the code
   // relies on it.
   ?>
-  if (areaSelect.length === 0)
+  if ($('#area').length === 0)
   {
-    areaSelect = $('<input id="area" type="hidden" value="' + args.area + '">');
-    $('#div_rooms').before(areaSelect);
+    $('#div_rooms').before('<input id="area" type="hidden" value="' + args.area + '">');
   }
+
+  var areaSelect = $('#area'),
+      startSelect,
+      endSelect,
+      allDay;
 
   $('#div_areas').show();
 
@@ -1480,7 +1454,7 @@ $(document).on('page_ready', function() {
   // Use a click event for checkboxes as it seems that in some browsers the event fires
   // before the value is changed.
   ?>
-  var formFields = form.find('input.date, [name]').not(':disabled, [type="submit"], [type="button"], [type="image"]');
+  var formFields = $('form#main').find('input.date, [name]').not(':disabled, [type="submit"], [type="button"], [type="image"]');
   formFields.filter(':checkbox')
             .on('click', function() {
                 checkConflicts();
@@ -1510,7 +1484,7 @@ $(document).on('page_ready', function() {
   $('<div>').attr('id', 'check_results')
             .css('display', 'none')
             .html(tabsHTML)
-            .appendTo(form);
+            .appendTo($('form#main'));
 
   $('#conflict_check, #policy_check').on('click', function manageTabs() {
       var tabId,
@@ -1560,15 +1534,14 @@ $(document).on('page_ready', function() {
                            'minHeight': 150,
                            'draggable': true});
       <?php //steal the close button ?>
-      var detailsTabs = $('#details_tabs');
-      detailsTabs.append($('button.ui-dialog-titlebar-close'));
+      $('#details_tabs').append($('button.ui-dialog-titlebar-close'));
       <?php //move the tabs out of the content and make them draggable ?>
       $('.ui-dialog').addClass('ui-tabs')
-                     .prepend(detailsTabs)
+                     .prepend($('#details_tabs'))
                      .draggable('option', 'handle', '#details_tabs');
       <?php //switch the titlebar class ?>
       $('.ui-dialog-titlebar').remove();
-      detailsTabs.addClass('ui-dialog-titlebar');
+      $('#details_tabs').addClass('ui-dialog-titlebar');
 
       manageTabs.alreadyExists=true;
     });
@@ -1598,39 +1571,19 @@ $(document).on('page_ready', function() {
     }
 
     <?php
-    // (2) If the start date is after the end date, then change the end date to match the
-    //     start date if the start date was changed, or change the start date to match the
-    //     end date if the end date was changed.
-    ?>
-    if (getDateDifference() < 0)
-    {
-      var fp;
-      if ($(this).attr('id') === 'start_date')
-      {
-        fp = document.querySelector("#end_date")._flatpickr;
-        fp.setDate($('#start_date').val());
-      }
-      else
-      {
-        fp = document.querySelector("#start_date")._flatpickr;
-        fp.setDate($('#end_date').val());
-      }
-    }
-
-    <?php
-    // (3) Go and adjust the start and end time/period select options, because
+    // (2) Go and adjust the start and end time/period select options, because
     //     they are dependent on the start and end dates
     ?>
     adjustSlotSelectors();
 
     <?php
-    // (4) If we're doing Ajax checking of the form then we have to check
+    // (3) If we're doing Ajax checking of the form then we have to check
     //     for conflicts when the datepicker is closed
     ?>
     checkConflicts();
 
     <?php
-    // (5) Check to see whether any time slots should be removed from the time
+    // (4) Check to see whether any time slots should be removed from the time
     //     select on the grounds that they don't exist due to a transition into DST.
     ?>
     checkTimeSlots($(this));
@@ -1698,7 +1651,7 @@ $(document).on('page_ready', function() {
   // Enable the checkboxes which may have been disabled, otherwise their values
   // will not be posted.
   ?>
-  form.on('submit', function() {
+  form.submit(function() {
       $('#registration').find('input[type="checkbox"]').prop('disabled', false);
     });
 

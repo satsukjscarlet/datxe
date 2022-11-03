@@ -24,17 +24,13 @@ class AuthWordpress extends Auth
    *   false    - The pair are invalid or do not exist
    *   string   - The validated username
    */
-  public function validateUser(
-    #[\SensitiveParameter]
-    ?string $user,
-    #[\SensitiveParameter]
-    ?string $pass)
+  public function validateUser(?string $user, ?string $pass)
   {
     return (is_wp_error(wp_authenticate($user, $pass))) ? false : $user;
   }
 
 
-  protected function getUserFresh(string $username) : ?User
+  public function getUser(string $username) : ?User
   {
     $wp_user = get_user_by('login', $username);
 
