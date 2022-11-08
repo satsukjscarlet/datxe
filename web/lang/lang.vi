@@ -637,8 +637,8 @@ $vocab["restore_original"]   = "Khôi phục nguyên dạng";
 
 // Entry types
 $vocab["type."]             = "Xin vui lòng chọn một kiểu";
-$vocab["type.I"]            = "Nội bộ";
-$vocab["type.E"]            = "Bên ngoài";
+$vocab["type.I"]            = "Công tác gần";
+$vocab["type.E"]            = "Công tác xa";
 
 // General
 $vocab["fatal_error"]        = "Rất tiếc!  Thật không may MRBS đã gặp lỗi nghiêm trọng.  Xin vui lòng tham khảo admin hệ thống của bạn.";

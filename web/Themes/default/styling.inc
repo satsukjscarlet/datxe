@@ -88,7 +88,7 @@ $button_inset_color = 'darkblue';
 // displays in the day, week and month views
 $color_types = array(
     'A' => "#ffff99",
-    'B' => "#99cccc",
+    'B' => "#F514B9",
     'C' => "#ffffcd",
     'D' => "#cde6e6",
     'E' => "#6dd9c4",
