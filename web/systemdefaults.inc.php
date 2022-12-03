@@ -1857,7 +1857,7 @@ $mail_settings['on_delete'] = true;  // when an entry is deleted
 // gửi email khi tạo hoặc chỉnh sửa đặt chỗ. Điều này có thể hữu ích nếu một
 // thay đổi đang được thực hiện hoặc nhiều lượt đặt trước đang được thực hiện vào đầu kỳ hạn hoặc mùa giải.
 $mail_settings['allow_no_mail']        = false;
-$mail_settings['allow_admins_no_mail'] = false;  // Ignored if 'allow_no_mail' is true
+$mail_settings['allow_admins_no_mail'] = true;  // Ignored if 'allow_no_mail' is true
 $mail_settings['no_mail_default'] = false; // Default value for the 'no mail' checkbox.
                                            // true for checked (ie don't send mail),
                                            // false for unchecked (ie do send mail)

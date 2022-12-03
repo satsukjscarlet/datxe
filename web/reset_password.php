@@ -227,7 +227,7 @@ $context = array(
     'room'      => isset($room) ? $room : null
   );
 
-print_header($context);
+// print_header($context);
 
 $action = get_form_var('action', 'string');
 $error = get_form_var('error', 'string');

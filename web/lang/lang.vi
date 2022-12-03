@@ -66,7 +66,7 @@ $vocab["copyentry"]          = "Sao chép đơn đặt xe";
 $vocab["editseries"]         = "Chỉnh sửa bộ";
 $vocab["copyseries"]         = "Sao chép bộ";
 $vocab["namebooker"]         = "Địa điểm công tác";
-$vocab["fulldescription"]    = "Thông tin khác";
+$vocab["fulldescription"]    = "Người đi công tác";
 $vocab["date"]               = "Ngày";
 $vocab["start"]              = "Bắt đầu";
 $vocab["end"]                = "Kết thúc";
@@ -302,7 +302,7 @@ $vocab["password_reset_body"]       = 'Có người dùng đã yêu cầu đặt
                                       'Bạn có thể đặt lại mật khẩu bằng cách vào đường địa chỉ dưới đây. ' .
                                       'Địa chỉ này sẽ hết hạn trong %1$d %2$s.';
 $vocab["enter_username"]            = "Xin vui lòng nhập tên người dùng của bạn tại đây.";
-$vocab["enter_username_or_email"]   = "Xin vui lòng nhập tên nCó gười dùng hay địa chỉ email của bạn tại đây.";
+$vocab["enter_username_or_email"]   = "Xin vui lòng nhập tên tài khoản hay địa chỉ email của bạn tại đây.";
 $vocab["will_be_sent_instructions"] = "Bạn sẽ được gửi một tin nhắn email với các hướng dẫn làm thế nào để đặt lại mật khẩu của bạn.";
 $vocab["reset_password"]            = "Đặt lại mật khẩu";
 $vocab["pwd_check_email"]           = "Cảm ơn bạn.  Nếu có tài khoản người dùng tương ứng với những chi tiết đó sau đó bạn " .
